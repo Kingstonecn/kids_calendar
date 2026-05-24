@@ -46,6 +46,8 @@ app.*.map.json
 # Gradle
 .android/
 .gradle/
+**/.gradle/
+.cxx/
 local.properties
 
 # IDE
