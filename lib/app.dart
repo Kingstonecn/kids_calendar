@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'providers/schedule_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_shell.dart';
 import 'screens/schedule_form_screen.dart';
 import 'screens/schedule_detail_screen.dart';
 import 'models/schedule.dart';
@@ -78,7 +78,7 @@ class KidsCalendarApp extends StatelessWidget {
             );
           default:
             return MaterialPageRoute(
-              builder: (_) => const HomeScreen(),
+              builder: (_) => const MainShell(),
             );
         }
       },
