@@ -51,15 +51,33 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () => _showSearch(context),
+          SizedBox(
+            width: 48,
+            child: GestureDetector(
+              onTap: () => _showSearch(context),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search, size: 22),
+                  Text('搜索', style: TextStyle(fontSize: 10)),
+                ],
+              ),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.today),
-            onPressed: () {
-              context.read<ScheduleProvider>().selectDate(DateTime.now());
-            },
+          SizedBox(
+            width: 48,
+            child: GestureDetector(
+              onTap: () {
+                context.read<ScheduleProvider>().selectDate(DateTime.now());
+              },
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.today, size: 22),
+                  Text('今天', style: TextStyle(fontSize: 10)),
+                ],
+              ),
+            ),
           ),
         ],
       ),
