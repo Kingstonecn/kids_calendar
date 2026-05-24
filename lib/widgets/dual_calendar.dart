@@ -200,11 +200,13 @@ class _DualCalendarState extends State<DualCalendar> {
             date.month,
             date.day,
           );
-          final festival = LunarCalendar.getLunarFestival(
+          // 优先显示法定假日, 不显示农历
+          final legalHoliday = LunarCalendar.getLegalHoliday(
             date.year,
             date.month,
             date.day,
           );
+          final isHoliday = legalHoliday != null;
 
           return GestureDetector(
             onTap: () {
@@ -251,12 +253,15 @@ class _DualCalendarState extends State<DualCalendar> {
                     ],
                   ),
                   const SizedBox(height: 1),
-                  if (festival != null)
+                  // 优先显示法定假日(红色), 其次显示农历(黑色)
+                  if (isHoliday)
                     Text(
-                      festival,
-                      style: const TextStyle(
+                      legalHoliday!,
+                      style: TextStyle(
                         fontSize: 8,
-                        color: AppConstants.accentColor,
+                        color: isCurrentMonth
+                            ? AppConstants.accentColor
+                            : AppConstants.accentColor.withOpacity(0.4),
                       ),
                     )
                   else if (lunar.isNotEmpty)
@@ -265,7 +270,7 @@ class _DualCalendarState extends State<DualCalendar> {
                       style: TextStyle(
                         fontSize: 8,
                         color: isCurrentMonth
-                            ? AppConstants.textSecondary
+                            ? AppConstants.textPrimary
                             : Colors.grey.shade300,
                       ),
                     ),
