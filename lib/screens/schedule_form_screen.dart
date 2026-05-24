@@ -9,8 +9,7 @@ import '../widgets/mini_calendar_dialog.dart';
 import '../utils/constants.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
-  final Schedule? schedule; // null = 新增, non-null = 编辑
-
+  final Schedule? schedule;
   const ScheduleFormScreen({super.key, this.schedule});
 
   @override
@@ -23,12 +22,17 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   late TextEditingController _descController;
   late DateTime _selectedDate;
   late TimeOfDay? _startTime;
-  late TimeOfDay? _endTime;
+  late int _durationMinutes; // -1 = 全天, 0+ = 持续分钟数
   late String _category;
   late int _colorIndex;
   late bool _hasAlarm;
   late int? _alarmMinutesBefore;
   bool _isEditing = false;
+
+  static const String _allDayLabel = '全天';
+  static const List<int> _durationOptions = [
+    -1, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 360, 420, 480, 540, 600,
+  ];
 
   final DateFormat _dateFormat = DateFormat('yyyy-MM-dd');
   final DateFormat _displayDateFormat = DateFormat('yyyy年MM月dd日');
@@ -47,9 +51,21 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     _startTime = schedule?.startTime != null
         ? _parseTime(schedule!.startTime!)
         : null;
-    _endTime = schedule?.endTime != null
-        ? _parseTime(schedule!.endTime!)
-        : null;
+
+    // 计算时长: 有起止时间则算差值, 否则为 -1 (全天) 或 0
+    if (schedule?.startTime != null && schedule?.endTime != null) {
+      final st = _parseTime(schedule!.startTime!);
+      final et = _parseTime(schedule.endTime!);
+      if (st != null && et != null) {
+        _durationMinutes = (et.hour * 60 + et.minute) - (st.hour * 60 + st.minute);
+        if (_durationMinutes <= 0) _durationMinutes = 30;
+      } else {
+        _durationMinutes = -1;
+      }
+    } else {
+      _durationMinutes = -1;
+    }
+
     _category = schedule?.category ?? '亲子';
     _colorIndex = schedule?.colorIndex ?? 0;
     _hasAlarm = schedule?.hasAlarm ?? false;
@@ -65,11 +81,25 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     return TimeOfDay(hour: h, minute: m);
   }
 
+  String _durationLabel(int minutes) {
+    if (minutes == -1) return _allDayLabel;
+    if (minutes < 60) return '${minutes}分钟';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return m == 0 ? '${h}小时' : '$h小时${m}分';
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
     super.dispose();
+  }
+
+  TimeOfDay? get _endTime {
+    if (_startTime == null || _durationMinutes == -1) return null;
+    final total = _startTime!.hour * 60 + _startTime!.minute + _durationMinutes;
+    return TimeOfDay(hour: total ~/ 60, minute: total % 60);
   }
 
   @override
@@ -78,13 +108,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       appBar: AppBar(
         title: Text(_isEditing ? '编辑日程' : '新增日程'),
         actions: [
-          // 删除按钮（编辑模式）
           if (_isEditing)
             IconButton(
               icon: const Icon(Icons.delete),
               onPressed: _confirmDelete,
             ),
-          // 复制按钮
           IconButton(
             icon: const Icon(Icons.content_copy),
             tooltip: '复制到其他日期',
@@ -99,7 +127,48 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 标题
+              // ═══ 日期选择（最上方）═══
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: AppConstants.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppConstants.primaryColor.withOpacity(0.2)),
+                ),
+                child: InkWell(
+                  onTap: _pickDate,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today,
+                          color: AppConstants.primaryColor),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('日期',
+                              style: TextStyle(fontSize: 12,
+                                  color: AppConstants.textSecondary)),
+                          Text(
+                            _displayDateFormat.format(_selectedDate),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppConstants.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.arrow_forward_ios,
+                          size: 16, color: AppConstants.textSecondary),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ═══ 标题 ═══
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
@@ -113,7 +182,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 描述
+              // ═══ 描述 ═══
               TextFormField(
                 controller: _descController,
                 decoration: const InputDecoration(
@@ -122,57 +191,51 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   prefixIcon: Icon(Icons.description),
                   border: OutlineInputBorder(),
                 ),
-                maxLines: 3,
+                maxLines: 2,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              // 日期
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today),
-                title: const Text('日期'),
-                subtitle: Text(_displayDateFormat.format(_selectedDate)),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: _pickDate,
+              // ═══ 开始时间 + 时长（一行）═══
+              Row(
+                children: [
+                  // 开始时间
+                  Expanded(
+                    child: _buildSelector(
+                      icon: Icons.access_time,
+                      label: '开始时间',
+                      value: _startTime != null
+                          ? _startTime!.format(context)
+                          : '请选择',
+                      onTap: () => _pickTime(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // 时长
+                  Expanded(
+                    child: _buildSelector(
+                      icon: Icons.timer_outlined,
+                      label: '时长',
+                      value: _durationLabel(_durationMinutes),
+                      onTap: _showDurationPicker,
+                    ),
+                  ),
+                ],
               ),
-              const Divider(),
+              const SizedBox(height: 20),
 
-              // 开始时间
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.access_time),
-                title: const Text('开始时间'),
-                subtitle: Text(_startTime != null
-                    ? _startTime!.format(context)
-                    : '不限'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _pickTime(true),
-              ),
-              const Divider(),
-
-              // 结束时间
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.timer_off),
-                title: const Text('结束时间'),
-                subtitle: Text(_endTime != null
-                    ? _endTime!.format(context)
-                    : '不限'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _pickTime(false),
-              ),
-              const Divider(),
-
-              // 分类
-              const Text('分类', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              // ═══ 分类 ═══
+              const Text('分类',
+                  style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600,
+                      color: AppConstants.textSecondary)),
               const SizedBox(height: 8),
               CategoryPicker(
                 selectedCategory: _category,
                 onChanged: (c) => setState(() => _category = c),
               ),
-              const Divider(),
+              const SizedBox(height: 16),
 
-              // 提醒
+              // ═══ 提醒 ═══
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('开启提醒'),
@@ -200,7 +263,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
               ],
               const SizedBox(height: 24),
 
-              // 保存按钮
+              // ═══ 保存按钮 ═══
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -226,6 +289,46 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     );
   }
 
+  Widget _buildSelector({
+    required IconData icon,
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AppConstants.primaryColor),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppConstants.textSecondary)),
+                  Text(value,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_drop_down,
+                size: 20, color: AppConstants.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -239,39 +342,100 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     }
   }
 
-  Future<void> _pickTime(bool isStart) async {
-    final initial = isStart
-        ? (_startTime ?? TimeOfDay(hour: 9, minute: 0))
-        : (_endTime ?? TimeOfDay(hour: 10, minute: 0));
+  Future<void> _pickTime() async {
+    final initial = _startTime ?? const TimeOfDay(hour: 9, minute: 0);
     final picked = await showTimePicker(
       context: context,
       initialTime: initial,
     );
     if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startTime = picked;
-        } else {
-          _endTime = picked;
-        }
-      });
+      setState(() => _startTime = picked);
     }
+  }
+
+  /// 时长选择底部弹窗 (滚动选择, 30分钟步进)
+  void _showDurationPicker() {
+    final fixedItemExtent = 48.0;
+    final initialIndex = _durationOptions.indexOf(_durationMinutes);
+    final controller = FixedExtentScrollController(
+      initialItem: initialIndex >= 0 ? initialIndex : 0,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Container(
+          height: 320,
+          padding: const EdgeInsets.only(top: 16),
+          child: Column(
+            children: [
+              // 标题 + 确认按钮
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('选择时长',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    TextButton(
+                      onPressed: () {
+                        final idx = controller.hasClients
+                            ? controller.selectedItem
+                            : 0;
+                        final duration = _durationOptions[
+                            idx.clamp(0, _durationOptions.length - 1)];
+                        Navigator.pop(ctx, duration);
+                      },
+                      child: const Text('确定'),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              // 滚动选择器
+              Expanded(
+                child: ListWheelScrollView(
+                  controller: controller,
+                  itemExtent: fixedItemExtent,
+                  perspective: 0.005,
+                  diameterRatio: 1.5,
+                  useMagnifier: true,
+                  magnification: 1.1,
+                  children: _durationOptions.map((min) {
+                    return Center(
+                      child: Text(
+                        _durationLabel(min),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: min == _durationMinutes
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: min == -1
+                              ? AppConstants.primaryColor
+                              : AppConstants.textPrimary,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ).then((result) {
+      if (result != null && result is int) {
+        setState(() => _durationMinutes = result);
+      }
+    });
   }
 
   Future<void> _saveSchedule() async {
     if (!_formKey.currentState!.validate()) return;
-
-    // 校验结束时间不能早于开始时间
-    if (_startTime != null && _endTime != null) {
-      final start = _startTime!.hour * 60 + _startTime!.minute;
-      final end = _endTime!.hour * 60 + _endTime!.minute;
-      if (end <= start) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('结束时间必须晚于开始时间')),
-        );
-        return;
-      }
-    }
 
     final schedule = Schedule(
       id: widget.schedule?.id,
@@ -300,14 +464,13 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       schedule.id = id;
     }
 
-    // 处理闹钟
-    if (_hasAlarm && schedule.id != null) {
+    if (_hasAlarm && schedule.id != null && _startTime != null) {
       final alarmDate = DateTime(
         _selectedDate.year,
         _selectedDate.month,
         _selectedDate.day,
-        _startTime?.hour ?? 9,
-        _startTime?.minute ?? 0,
+        _startTime!.hour,
+        _startTime!.minute,
       );
       await NotificationService().scheduleNotification(
         scheduleId: schedule.id!,
@@ -354,17 +517,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       await context
           .read<ScheduleProvider>()
           .deleteSchedule(widget.schedule!.id!);
-
-      // 取消通知
       await NotificationService().cancelNotification(widget.schedule!.id!);
-
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
+      if (mounted) Navigator.pop(context, true);
     }
   }
 
-  /// 打开复制弹窗 — 核心连续复制功能
   Future<void> _showCopyDialog() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -377,16 +534,13 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       context: context,
       builder: (ctx) => MiniCalendarDialog(
         sourceDate: _selectedDate,
-        repeatEndDate: null, // 可根据需要设置
       ),
     );
 
     if (result != null && result.isNotEmpty) {
-      // 先保存当前日程
       if (!_formKey.currentState!.validate()) return;
 
       final schedule = Schedule(
-        id: widget.schedule?.id,
         title: _titleController.text.trim(),
         description: _descController.text.trim(),
         date: _dateFormat.format(_selectedDate),
@@ -408,7 +562,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         sourceId = await context.read<ScheduleProvider>().addSchedule(schedule);
       }
 
-      // 批量复制
       final count = await context
           .read<ScheduleProvider>()
           .batchCopySchedule(schedule.copyWith(id: sourceId), result);
