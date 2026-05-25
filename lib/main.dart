@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'app.dart';
 import 'providers/schedule_provider.dart';
+import 'providers/theme_provider.dart';
 import 'services/notification_service.dart';
 import 'screens/schedule_detail_screen.dart';
 
@@ -12,10 +13,19 @@ void main() async {
   final notificationService = NotificationService();
   await notificationService.init();
 
+  // 读取保存的设置
+  final settings = await ThemeProvider.loadSettings();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ScheduleProvider()),
+        ChangeNotifierProvider(
+          create: (_) => ThemeProvider(
+            themeIndex: settings['themeIndex']!,
+            firstDayOfWeek: settings['firstDayOfWeek']!,
+          ),
+        ),
       ],
       child: const KidsCalendarApp(),
     ),

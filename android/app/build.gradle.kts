@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -32,6 +34,23 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+// 复制 APK 输出文件
+tasks.register("copyApk") {
+    doLast {
+        fileTree("${project.buildDir}/outputs/flutter-apk/").matching {
+            include("app-*.apk")
+        }.forEach { apk ->
+            val newName = apk.name.replace("app-", "kids_calendar-")
+            apk.copyTo(apk.parentFile.resolve(newName), overwrite = true)
+            println("APK copied: ${apk.name} -> $newName")
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("assemble") }.configureEach {
+    finalizedBy("copyApk")
 }
 
 dependencies {

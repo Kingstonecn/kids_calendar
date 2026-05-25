@@ -8,12 +8,16 @@ class ScheduleProvider extends ChangeNotifier {
 
   List<Schedule> _currentSchedules = [];
   List<String> _datesWithSchedules = [];
+  Map<String, List<Schedule>> _monthSchedules = {};
+  List<Schedule> _agendaSchedules = [];
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
 
   // Getters
   List<Schedule> get currentSchedules => _currentSchedules;
   List<String> get datesWithSchedules => _datesWithSchedules;
+  Map<String, List<Schedule>> get monthSchedules => _monthSchedules;
+  List<Schedule> get agendaSchedules => _agendaSchedules;
   DateTime get selectedDate => _selectedDate;
   bool get isLoading => _isLoading;
 
@@ -36,16 +40,33 @@ class ScheduleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 加载指定月份有日程的日期
+  /// 加载指定月份有日程的日期及日程详情
   Future<void> loadDatesForMonth(int year, int month) async {
     final schedules = await _dao.getByMonth(year, month);
     _datesWithSchedules = schedules.map((s) => s.date).toSet().toList();
+
+    _monthSchedules = {};
+    for (final s in schedules) {
+      _monthSchedules.putIfAbsent(s.date, () => []).add(s);
+    }
     notifyListeners();
   }
 
   /// 获取所有日程日期
   Future<void> loadAllDates() async {
     _datesWithSchedules = await _dao.getAllDates();
+    notifyListeners();
+  }
+
+  /// 加载日程列表（前后各一年）
+  Future<void> loadAgendaSchedules() async {
+    final today = DateTime.now();
+    final start = DateTime(today.year - 1, today.month, today.day);
+    final end = DateTime(today.year + 1, today.month, today.day);
+    _agendaSchedules = await _dao.getByDateRange(
+      date_utils.DateUtils.formatDate(start),
+      date_utils.DateUtils.formatDate(end),
+    );
     notifyListeners();
   }
 

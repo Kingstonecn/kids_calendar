@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/schedule_provider.dart';
 import '../widgets/dual_calendar.dart';
-import '../widgets/timeline_list.dart';
-import '../utils/date_utils.dart' as date_utils;
+import '../widgets/day_view.dart';
 import '../utils/constants.dart';
 import 'schedule_form_screen.dart';
 
@@ -15,6 +14,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _viewMode = 0; // 0=月, 1=日
+
+  static const _modeLabels = ['月', '日'];
+  static const _modeIcons = [
+    Icons.calendar_view_month,
+    Icons.calendar_view_day,
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -27,30 +34,41 @@ class _HomeScreenState extends State<HomeScreen> {
     provider.loadAllDates();
   }
 
+  void _switchMode() {
+    setState(() {
+      _viewMode = (_viewMode + 1) % 2;
+    });
+  }
+
+  void _onDateSelected(DateTime date) {
+    setState(() {
+      _viewMode = 1;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          children: [
-            const Text(
-              '亲子时光',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Consumer<ScheduleProvider>(
-              builder: (context, provider, _) {
-                final friendly = date_utils.DateUtils.friendlyDate(
-                  date_utils.DateUtils.formatDate(provider.selectedDate),
-                );
-                return Text(
-                  friendly,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
-                );
-              },
-            ),
-          ],
+        title: const Text(
+          '亲子时光',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         actions: [
+          SizedBox(
+            width: 48,
+            child: GestureDetector(
+              onTap: _switchMode,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(_modeIcons[_viewMode], size: 22),
+                  Text(_modeLabels[_viewMode],
+                      style: const TextStyle(fontSize: 10)),
+                ],
+              ),
+            ),
+          ),
           SizedBox(
             width: 48,
             child: GestureDetector(
@@ -64,100 +82,47 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          SizedBox(
-            width: 48,
-            child: GestureDetector(
-              onTap: () {
-                context.read<ScheduleProvider>().selectDate(DateTime.now());
-              },
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.today, size: 22),
-                  Text('今天', style: TextStyle(fontSize: 10)),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
       body: Consumer<ScheduleProvider>(
         builder: (context, provider, _) {
-          return RefreshIndicator(
-            onRefresh: () async {
-              await provider.selectDate(provider.selectedDate);
-              await provider.loadAllDates();
-            },
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-                  // 双历组件
-                  const DualCalendar(),
-                  const SizedBox(height: 12),
-                  // 日期标题
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time,
-                          size: 16,
-                          color: AppConstants.textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          date_utils.DateUtils.detailDate(
-                            date_utils.DateUtils.formatDate(provider.selectedDate),
-                          ),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppConstants.textSecondary,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${provider.currentSchedules.length}个日程',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppConstants.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
+          switch (_viewMode) {
+            case 0:
+              return RefreshIndicator(
+                onRefresh: () async {
+                  await provider.loadAllDates();
+                  await provider.loadDatesForMonth(
+                    DateTime.now().year,
+                    DateTime.now().month,
+                  );
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 8),
+                      DualCalendar(onDateSelected: _onDateSelected),
+                      const SizedBox(height: 80),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  // 时间轴列表
-                  if (provider.isLoading)
-                    const Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else
-                    TimelineList(
-                      schedules: provider.currentSchedules,
-                      selectedDate: provider.selectedDate,
-                    ),
-                  const SizedBox(height: 80), // FAB 空间
-                ],
-              ),
-            ),
-          );
+                ),
+              );
+            case 1:
+              return const DayView();
+            default:
+              return const SizedBox.shrink();
+          }
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final result = await Navigator.push(
+          final selectedDate = context.read<ScheduleProvider>().selectedDate;
+          await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const ScheduleFormScreen(),
+              builder: (_) => ScheduleFormScreen(initialDate: selectedDate),
             ),
           );
-          if (result == true) {
-            // 数据已通过 Provider 自动刷新
-          }
         },
         child: const Icon(Icons.add),
       ),
@@ -226,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        '搜索 "${keyword}" 共 ${results.length} 条结果',
+                        '搜索 "$keyword" 共 ${results.length} 条结果',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

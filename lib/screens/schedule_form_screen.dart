@@ -10,7 +10,8 @@ import '../utils/constants.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
   final Schedule? schedule;
-  const ScheduleFormScreen({super.key, this.schedule});
+  final DateTime? initialDate;
+  const ScheduleFormScreen({super.key, this.schedule, this.initialDate});
 
   @override
   State<ScheduleFormScreen> createState() => _ScheduleFormScreenState();
@@ -34,6 +35,19 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     -1, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 360, 420, 480, 540, 600,
   ];
 
+  static final List<TimeOfDay> _timeOptions = () {
+    final times = <TimeOfDay>[];
+    for (int h = 8; h <= 23; h++) {
+      times.add(TimeOfDay(hour: h, minute: 0));
+      times.add(TimeOfDay(hour: h, minute: 30));
+    }
+    return times;
+  }();
+
+  String _timeLabel(TimeOfDay t) {
+    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  }
+
   final DateFormat _dateFormat = DateFormat('yyyy-MM-dd');
   final DateFormat _displayDateFormat = DateFormat('yyyy年MM月dd日');
 
@@ -47,13 +61,15 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     _descController = TextEditingController(text: schedule?.description ?? '');
     _selectedDate = schedule != null
         ? DateTime.tryParse(schedule.date) ?? DateTime.now()
-        : DateTime.now();
+        : widget.initialDate ?? DateTime.now();
     _startTime = schedule?.startTime != null
         ? _parseTime(schedule!.startTime!)
         : null;
 
-    // 计算时长: 有起止时间则算差值, 否则为 -1 (全天) 或 0
-    if (schedule?.startTime != null && schedule?.endTime != null) {
+    // 计算时长: 新建默认30分钟; 编辑时有起止时间则算差值, 否则为全天
+    if (widget.schedule == null) {
+      _durationMinutes = 30;
+    } else if (schedule?.startTime != null && schedule?.endTime != null) {
       final st = _parseTime(schedule!.startTime!);
       final et = _parseTime(schedule.endTime!);
       if (st != null && et != null) {
@@ -206,7 +222,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                       value: _startTime != null
                           ? _startTime!.format(context)
                           : '请选择',
-                      onTap: () => _pickTime(),
+                      onTap: () => _showTimePicker(),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -342,15 +358,107 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     }
   }
 
-  Future<void> _pickTime() async {
+  Future<void> _showTimePicker() async {
+    final fixedItemExtent = 48.0;
     final initial = _startTime ?? const TimeOfDay(hour: 9, minute: 0);
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initial,
-    );
-    if (picked != null) {
-      setState(() => _startTime = picked);
+    var initialIdx = _timeOptions.indexWhere((t) =>
+        t.hour == initial.hour && t.minute == initial.minute);
+    if (initialIdx < 0) {
+      initialIdx = 0;
+      for (int i = 0; i < _timeOptions.length; i++) {
+        final t = _timeOptions[i];
+        if (t.hour * 60 + t.minute >= initial.hour * 60 + initial.minute) {
+          initialIdx = i;
+          break;
+        }
+      }
     }
+    final controller = FixedExtentScrollController(initialItem: initialIdx);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final currentIdx = controller.hasClients
+                ? controller.selectedItem
+                : initialIdx;
+            return Container(
+              height: 320,
+              padding: const EdgeInsets.only(top: 16),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('选择开始时间',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
+                        TextButton(
+                          onPressed: () {
+                            final idx = controller.hasClients
+                                ? controller.selectedItem
+                                : initialIdx;
+                            final time = _timeOptions[
+                                idx.clamp(0, _timeOptions.length - 1)];
+                            Navigator.pop(ctx, time);
+                          },
+                          child: const Text('确定'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        setDialogState(() {});
+                        return false;
+                      },
+                      child: ListWheelScrollView(
+                        controller: controller,
+                        itemExtent: fixedItemExtent,
+                        perspective: 0.005,
+                        diameterRatio: 1.5,
+                        useMagnifier: true,
+                        magnification: 1.1,
+                        children: _timeOptions.map((t) {
+                          final idx = _timeOptions.indexOf(t);
+                          final isSelected = idx == currentIdx;
+                          return Center(
+                            child: Text(
+                              _timeLabel(t),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: isSelected
+                                    ? AppConstants.primaryColor
+                                    : AppConstants.textPrimary,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((result) {
+      if (result != null && result is TimeOfDay) {
+        setState(() => _startTime = result);
+      }
+    });
   }
 
   /// 时长选择底部弹窗 (滚动选择, 30分钟步进)
@@ -367,64 +475,81 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
-        return Container(
-          height: 320,
-          padding: const EdgeInsets.only(top: 16),
-          child: Column(
-            children: [
-              // 标题 + 确认按钮
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('选择时长',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    TextButton(
-                      onPressed: () {
-                        final idx = controller.hasClients
-                            ? controller.selectedItem
-                            : 0;
-                        final duration = _durationOptions[
-                            idx.clamp(0, _durationOptions.length - 1)];
-                        Navigator.pop(ctx, duration);
-                      },
-                      child: const Text('确定'),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(),
-              // 滚动选择器
-              Expanded(
-                child: ListWheelScrollView(
-                  controller: controller,
-                  itemExtent: fixedItemExtent,
-                  perspective: 0.005,
-                  diameterRatio: 1.5,
-                  useMagnifier: true,
-                  magnification: 1.1,
-                  children: _durationOptions.map((min) {
-                    return Center(
-                      child: Text(
-                        _durationLabel(min),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: min == _durationMinutes
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: min == -1
-                              ? AppConstants.primaryColor
-                              : AppConstants.textPrimary,
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final currentIdx = controller.hasClients
+                ? controller.selectedItem
+                : initialIndex >= 0
+                    ? initialIndex
+                    : 0;
+            return Container(
+              height: 320,
+              padding: const EdgeInsets.only(top: 16),
+              child: Column(
+                children: [
+                  // 标题 + 确认按钮
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('选择时长',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
+                        TextButton(
+                          onPressed: () {
+                            final idx = controller.hasClients
+                                ? controller.selectedItem
+                                : 0;
+                            final duration = _durationOptions[
+                                idx.clamp(0, _durationOptions.length - 1)];
+                            Navigator.pop(ctx, duration);
+                          },
+                          child: const Text('确定'),
                         ),
+                      ],
+                    ),
+                  ),
+                  const Divider(),
+                  // 滚动选择器
+                  Expanded(
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        setDialogState(() {});
+                        return false;
+                      },
+                      child: ListWheelScrollView(
+                        controller: controller,
+                        itemExtent: fixedItemExtent,
+                        perspective: 0.005,
+                        diameterRatio: 1.5,
+                        useMagnifier: true,
+                        magnification: 1.1,
+                        children: _durationOptions.map((min) {
+                          final idx = _durationOptions.indexOf(min);
+                          final isSelected = idx == currentIdx;
+                          return Center(
+                            child: Text(
+                              _durationLabel(min),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: isSelected
+                                    ? AppConstants.primaryColor
+                                    : AppConstants.textPrimary,
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
-                    );
-                  }).toList(),
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     ).then((result) {

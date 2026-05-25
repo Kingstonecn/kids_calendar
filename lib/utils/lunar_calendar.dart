@@ -149,8 +149,7 @@ class LunarCalendar {
   static String? getLegalHoliday(int year, int month, int day) {
     // 公历固定日期节假日
     if (month == 1 && day == 1) return '元旦';
-    if (month == 4 && day == 4) return '清明节';
-    if (month == 4 && day == 5) return '清明节';
+    if (month == 4 && _isQingming(year, day)) return '清明节';
     if (month == 5 && day == 1) return '劳动节';
     if (month == 10 && day == 1) return '国庆节';
 
@@ -170,5 +169,20 @@ class LunarCalendar {
     if (m == 8 && d == 15) return '中秋节';
 
     return null;
+  }
+
+  /// 判断清明节日期 (4月4日或5日, 因年而异)
+  static bool _isQingming(int year, int day) {
+    // 清明节日期 (4月4日或5日)
+    // 已知年份的清明节:
+    // 2020-04-04, 2021-04-04, 2022-04-05, 2023-04-05,
+    // 2024-04-04, 2025-04-04, 2026-04-05, 2027-04-05,
+    // 2028-04-04, 2029-04-04, 2030-04-05, 2031-04-05
+    const qingmingApr4 = {
+      2020, 2021, 2024, 2025, 2028, 2029, 2032, 2033, 2036, 2037,
+    };
+    if (day == 4 && qingmingApr4.contains(year)) return true;
+    if (day == 5 && !qingmingApr4.contains(year)) return true;
+    return false;
   }
 }
