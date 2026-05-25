@@ -13,6 +13,8 @@ class Schedule {
   int? alarmMinutesBefore;
   int? sourceId; // 来源日程ID（复制关联）
   bool isCompleted;
+  String? appPackageName; // 关联的App包名, 如 "com.tencent.mm"
+  String? appName; // 关联的App名称, 如 "微信"
   String createdAt;
   String updatedAt;
 
@@ -31,6 +33,8 @@ class Schedule {
     this.alarmMinutesBefore,
     this.sourceId,
     this.isCompleted = false,
+    this.appPackageName,
+    this.appName,
     String? createdAt,
     String? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now().toIso8601String(),
@@ -52,6 +56,8 @@ class Schedule {
       'alarm_minutes_before': alarmMinutesBefore,
       'source_id': sourceId,
       'is_completed': isCompleted ? 1 : 0,
+      'app_package_name': appPackageName,
+      'app_name': appName,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };
@@ -73,6 +79,8 @@ class Schedule {
       alarmMinutesBefore: map['alarm_minutes_before'] as int?,
       sourceId: map['source_id'] as int?,
       isCompleted: (map['is_completed'] as int?) == 1,
+      appPackageName: map['app_package_name'] as String?,
+      appName: map['app_name'] as String?,
       createdAt: map['created_at'] as String,
       updatedAt: map['updated_at'] as String,
     );
@@ -93,6 +101,8 @@ class Schedule {
     int? alarmMinutesBefore,
     int? sourceId,
     bool? isCompleted,
+    String? appPackageName,
+    String? appName,
     String? createdAt,
     String? updatedAt,
   }) {
@@ -111,6 +121,8 @@ class Schedule {
       alarmMinutesBefore: alarmMinutesBefore ?? this.alarmMinutesBefore,
       sourceId: sourceId ?? this.sourceId,
       isCompleted: isCompleted ?? this.isCompleted,
+      appPackageName: appPackageName ?? this.appPackageName,
+      appName: appName ?? this.appName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -132,6 +144,8 @@ class Schedule {
       'alarmMinutesBefore': alarmMinutesBefore,
       'sourceId': sourceId,
       'isCompleted': isCompleted,
+      'appPackageName': appPackageName,
+      'appName': appName,
     };
   }
 }

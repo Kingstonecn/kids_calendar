@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:device_apps/device_apps.dart';
 import '../models/schedule.dart';
 import '../providers/schedule_provider.dart';
 import '../screens/schedule_form_screen.dart';
@@ -12,6 +14,41 @@ class DayView extends StatelessWidget {
   static const _hourHeight = 70.0;
   static const _startHour = 0;
   static const _hourCount = 24;
+  static final Map<String, Uint8List?> _appIconCache = {};
+
+  /// 获取 App 图标（缓存+懒加载）
+  static Future<Uint8List?> _getAppIcon(String packageName) async {
+    if (_appIconCache.containsKey(packageName)) {
+      return _appIconCache[packageName];
+    }
+    try {
+      final app = await DeviceApps.getApp(packageName, true);
+      if (app is ApplicationWithIcon) {
+        _appIconCache[packageName] = app.icon;
+        return app.icon;
+      }
+    } catch (_) {}
+    _appIconCache[packageName] = null; // 缓存失败结果
+    return null;
+  }
+
+  /// 启动关联 App
+  static Future<void> _launchApp(BuildContext context, String packageName) async {
+    try {
+      final launched = await DeviceApps.openApp(packageName);
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未找到关联应用')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('无法启动关联应用')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,9 +195,19 @@ class DayView extends StatelessWidget {
           children: [
             const Text('📅 ', style: TextStyle(fontSize: 12)),
             const SizedBox(width: 4),
-            Text(schedule.title, style: const TextStyle(fontSize: 12)),
-            const Spacer(),
-            const Text('全天', style: TextStyle(fontSize: 10, color: Colors.grey)),
+            Expanded(
+              child: Text(schedule.title,
+                  style: const TextStyle(fontSize: 12)),
+            ),
+            if (schedule.appPackageName != null)
+              _buildAppIcon(
+                context,
+                schedule.appPackageName!,
+                schedule.appName,
+              ),
+            const SizedBox(width: 4),
+            const Text('全天',
+                style: TextStyle(fontSize: 10, color: Colors.grey)),
           ],
         ),
       ),
@@ -201,11 +248,24 @@ class DayView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                schedule.title,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      schedule.title,
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (schedule.appPackageName != null)
+                    _buildAppIcon(
+                      context,
+                      schedule.appPackageName!,
+                      schedule.appName,
+                    ),
+                ],
               ),
               const SizedBox(height: 1),
               Text(
@@ -216,6 +276,47 @@ class DayView extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// 关联 App 图标按钮
+  Widget _buildAppIcon(BuildContext context, String packageName, String? appName) {
+    return FutureBuilder<Uint8List?>(
+      future: _getAppIcon(packageName),
+      builder: (context, snapshot) {
+        final iconData = snapshot.data;
+        return GestureDetector(
+          onTap: () => _launchApp(context, packageName),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Tooltip(
+              message: appName ?? packageName,
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey.shade100,
+                ),
+                child: iconData != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.memory(
+                          iconData,
+                          width: 18,
+                          height: 18,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.open_in_new, size: 14, color: Colors.grey),
+                        ),
+                      )
+                    : const Icon(Icons.open_in_new,
+                        size: 14, color: Colors.grey),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

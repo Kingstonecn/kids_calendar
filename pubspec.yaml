@@ -19,6 +19,7 @@ dependencies:
   provider: ^6.1.0
   flutter_local_notifications: ^17.0.0
   shared_preferences: ^2.2.0
+  device_apps: ^2.2.0
 
 dev_dependencies:
   flutter_test:

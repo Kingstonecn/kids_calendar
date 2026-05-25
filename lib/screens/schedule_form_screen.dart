@@ -6,6 +6,7 @@ import '../providers/schedule_provider.dart';
 import '../services/notification_service.dart';
 import '../widgets/category_picker.dart';
 import '../widgets/mini_calendar_dialog.dart';
+import '../widgets/app_picker_dialog.dart';
 import '../utils/constants.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
@@ -28,6 +29,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   late int _colorIndex;
   late bool _hasAlarm;
   late int? _alarmMinutesBefore;
+  String? _appPackageName;
+  String? _appName;
   bool _isEditing = false;
 
   static const String _allDayLabel = '全天';
@@ -86,6 +89,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     _colorIndex = schedule?.colorIndex ?? 0;
     _hasAlarm = schedule?.hasAlarm ?? false;
     _alarmMinutesBefore = schedule?.alarmMinutesBefore ?? 15;
+    _appPackageName = schedule?.appPackageName;
+    _appName = schedule?.appName;
   }
 
   TimeOfDay? _parseTime(String timeStr) {
@@ -248,6 +253,67 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
               CategoryPicker(
                 selectedCategory: _category,
                 onChanged: (c) => setState(() => _category = c),
+              ),
+              const SizedBox(height: 16),
+
+              // ═══ 关联应用 ═══
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: InkWell(
+                  onTap: _showAppPicker,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.phone_android,
+                          size: 20, color: AppConstants.primaryColor),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('关联应用',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppConstants.textSecondary)),
+                            const SizedBox(height: 2),
+                            Text(
+                              _appName ?? '选择关联应用（可选）',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: _appName != null
+                                    ? AppConstants.textPrimary
+                                    : AppConstants.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_appPackageName != null)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _appPackageName = null;
+                              _appName = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            child: const Icon(Icons.close,
+                                size: 18, color: Colors.grey),
+                          ),
+                        ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_drop_down,
+                          size: 20, color: AppConstants.textSecondary),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -559,6 +625,19 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     });
   }
 
+  Future<void> _showAppPicker() async {
+    final result = await AppPickerDialog.pick(
+      context,
+      currentPackageName: _appPackageName,
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _appPackageName = result.$1;
+        _appName = result.$2;
+      });
+    }
+  }
+
   Future<void> _saveSchedule() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -577,6 +656,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       repeatRule: widget.schedule?.repeatRule,
       sourceId: widget.schedule?.sourceId,
       isCompleted: widget.schedule?.isCompleted ?? false,
+      appPackageName: _appPackageName,
+      appName: _appName,
       createdAt: widget.schedule?.createdAt,
     );
 
@@ -675,6 +756,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         colorIndex: _colorIndex,
         hasAlarm: _hasAlarm,
         alarmMinutesBefore: _hasAlarm ? _alarmMinutesBefore : null,
+        appPackageName: _appPackageName,
+        appName: _appName,
         isCompleted: false,
         createdAt: DateTime.now().toIso8601String(),
       );

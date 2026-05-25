@@ -19,8 +19,9 @@ class DatabaseHelper {
     final path = join(dbPath, 'kids_calendar.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -41,6 +42,8 @@ class DatabaseHelper {
         alarm_minutes_before INTEGER,
         source_id INTEGER,
         is_completed INTEGER DEFAULT 0,
+        app_package_name TEXT,
+        app_name TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -48,6 +51,13 @@ class DatabaseHelper {
 
     await db.execute('CREATE INDEX idx_schedules_date ON schedules(date)');
     await db.execute('CREATE INDEX idx_schedules_source ON schedules(source_id)');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE schedules ADD COLUMN app_package_name TEXT');
+      await db.execute('ALTER TABLE schedules ADD COLUMN app_name TEXT');
+    }
   }
 
   Future<void> close() async {
