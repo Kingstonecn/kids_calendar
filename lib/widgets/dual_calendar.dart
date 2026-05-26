@@ -195,7 +195,7 @@ class _DualCalendarState extends State<DualCalendar> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.read<ThemeProvider>();
+    final provider = context.watch<ThemeProvider>();
     final config = provider.currentConfig;
     final firstDayOfWeek = provider.firstDayOfWeek;
     return Consumer<ScheduleProvider>(

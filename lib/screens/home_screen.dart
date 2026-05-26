@@ -376,13 +376,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: 0,
         title: const Text(
           '亲子时光',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
+        actionsPadding: EdgeInsets.zero,
         actions: [
           SizedBox(
-            width: 48,
+            width: 40,
             child: GestureDetector(
               onTap: _switchMode,
               child: Column(
@@ -396,7 +398,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           SizedBox(
-            width: 48,
+            width: 40,
             child: GestureDetector(
               onTap: () => _showSearch(context),
               child: const Column(
@@ -410,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           if (_viewMode == 0)
             SizedBox(
-              width: 48,
+              width: 40,
               child: GestureDetector(
                 onTap: _isCopyMode ? _exitCopyMode : _enterCopyMode,
                 child: Column(
@@ -434,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           if (_viewMode == 1)
             SizedBox(
-              width: 48,
+              width: 40,
               child: GestureDetector(
                 onTap: () => _clearDaySchedules(context),
                 child: const Column(

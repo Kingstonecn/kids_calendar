@@ -46,7 +46,7 @@ class DayView extends StatelessWidget {
             _buildDateHeader(date),
             _buildWeekStrip(date, provider),
             const Divider(height: 1),
-            Expanded(child: _buildTimeline(schedules, context)),
+            Expanded(child: _buildTimeline(schedules, date, provider, context)),
           ],
         );
       },
@@ -126,12 +126,13 @@ class DayView extends StatelessWidget {
     );
   }
 
-  Widget _buildTimeline(List<Schedule> schedules, BuildContext context) {
+  Widget _buildTimeline(List<Schedule> schedules, DateTime date, ScheduleProvider provider, BuildContext context) {
     final allDay = schedules.where((s) => s.startTime == null).toList();
     final timed = schedules.where((s) => s.startTime != null).toList();
     final totalHeight = _hourCount * _hourHeight;
 
     return SingleChildScrollView(
+      controller: ScrollController(initialScrollOffset: 9 * _hourHeight),
       child: Column(
         children: [
           if (allDay.isNotEmpty)
@@ -140,6 +141,18 @@ class DayView extends StatelessWidget {
             height: totalHeight,
             child: Stack(
               children: [
+                // 点击空白处创建日程
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTapUp: (details) {
+                      final tapY = details.localPosition.dy;
+                      final hour = (tapY / _hourHeight).floor().clamp(0, 23);
+                      final minute = ((tapY % _hourHeight) / _hourHeight * 60).round().clamp(0, 59);
+                      _createScheduleAt(context, date, hour, minute);
+                    },
+                  ),
+                ),
                 // 小时格线
                 ...List.generate(_hourCount, (i) => _buildHourLine(i)),
                 // 当前时间指示线
@@ -151,6 +164,19 @@ class DayView extends StatelessWidget {
           ),
           const SizedBox(height: 80),
         ],
+      ),
+    );
+  }
+
+  void _createScheduleAt(BuildContext context, DateTime date, int hour, int minute) {
+    final time = TimeOfDay(hour: hour, minute: minute);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScheduleFormScreen(
+          initialDate: date,
+          initialTime: time,
+        ),
       ),
     );
   }
@@ -271,7 +297,7 @@ class DayView extends StatelessWidget {
       top: top,
       left: 52,
       right: 8,
-      height: height.clamp(40, _hourHeight * 6),
+      height: height.clamp(20, _hourHeight * 6),
       child: GestureDetector(
         onTap: () => _openSchedule(context, schedule),
         child: Container(
@@ -281,33 +307,34 @@ class DayView extends StatelessWidget {
             border: Border(left: BorderSide(color: color, width: 3)),
           ),
           padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
                       schedule.title,
                       style: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w600),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  if (schedule.appPackageName != null)
-                    _buildAppIcon(
-                      context,
-                      schedule.appPackageName!,
-                      schedule.appName,
+                    Text(
+                      schedule.startTime!,
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                     ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 1),
-              Text(
-                schedule.startTime!,
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-              ),
+              if (schedule.appPackageName != null)
+                _buildAppIcon(
+                  context,
+                  schedule.appPackageName!,
+                  schedule.appName,
+                  size: 28,
+                ),
             ],
           ),
         ),
@@ -316,10 +343,11 @@ class DayView extends StatelessWidget {
   }
 
   /// 关联 App 图标按钮
-  Widget _buildAppIcon(BuildContext context, String packageName, String? appName) {
+  Widget _buildAppIcon(BuildContext context, String packageName, String? appName, {double size = 18}) {
     return _AppIconWidget(
       packageName: packageName,
       appName: appName,
+      size: size,
     );
   }
 }
@@ -328,10 +356,12 @@ class DayView extends StatelessWidget {
 class _AppIconWidget extends StatefulWidget {
   final String packageName;
   final String? appName;
+  final double size;
 
   const _AppIconWidget({
     required this.packageName,
     this.appName,
+    this.size = 18,
   });
 
   @override
@@ -383,8 +413,8 @@ class _AppIconWidgetState extends State<_AppIconWidget> {
         child: Tooltip(
           message: widget.appName ?? widget.packageName,
           child: Container(
-            width: 18,
-            height: 18,
+            width: widget.size,
+            height: widget.size,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(4),
               color: Colors.grey.shade100,
@@ -394,15 +424,15 @@ class _AppIconWidgetState extends State<_AppIconWidget> {
                     borderRadius: BorderRadius.circular(4),
                     child: Image.memory(
                       _iconData!,
-                      width: 18,
-                      height: 18,
+                      width: widget.size,
+                      height: widget.size,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
-                          Icons.open_in_new, size: 14, color: Colors.grey),
+                      errorBuilder: (_, __, ___) => Icon(
+                          Icons.open_in_new, size: widget.size - 4, color: Colors.grey),
                     ),
                   )
-                : const Icon(Icons.open_in_new,
-                    size: 14, color: Colors.grey),
+                : Icon(Icons.open_in_new,
+                    size: widget.size - 4, color: Colors.grey),
           ),
         ),
       ),

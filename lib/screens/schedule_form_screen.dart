@@ -12,7 +12,8 @@ import '../utils/date_utils.dart' as date_utils;
 class ScheduleFormScreen extends StatefulWidget {
   final Schedule? schedule;
   final DateTime? initialDate;
-  const ScheduleFormScreen({super.key, this.schedule, this.initialDate});
+  final TimeOfDay? initialTime;
+  const ScheduleFormScreen({super.key, this.schedule, this.initialDate, this.initialTime});
 
   @override
   State<ScheduleFormScreen> createState() => _ScheduleFormScreenState();
@@ -67,7 +68,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         : widget.initialDate ?? DateTime.now();
     _startTime = schedule?.startTime != null
         ? _parseTime(schedule!.startTime!)
-        : null;
+        : widget.initialTime;
 
     // 计算时长: 新建默认30分钟; 编辑时有起止时间则算差值, 否则为全天
     if (widget.schedule == null) {

@@ -94,7 +94,7 @@ class SettingsScreen extends StatelessWidget {
                 decoration: const InputDecoration(
                   labelText: '每周起始日',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_view_week),
+                  prefixIcon: Icon(Icons.date_range),
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
