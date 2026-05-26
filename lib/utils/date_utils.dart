@@ -91,4 +91,32 @@ class DateUtils {
     if (startTime != null && endTime != null) return '$startTime - $endTime';
     return startTime ?? endTime ?? '';
   }
+
+  /// 解析时间字符串，支持 "HH:mm" 和中文格式（"上午H:mm" / "下午H:mm"）
+  /// 返回 (hour, minute)，解析失败返回 null
+  static (int hour, int minute)? parseTimeOfDay(String timeStr) {
+    final parts = timeStr.split(':');
+    if (parts.length != 2) return null;
+
+    var hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (minute == null) return null;
+
+    if (hour != null && hour >= 0 && hour < 24) {
+      return (hour, minute);
+    }
+
+    // 中文格式：上午/下午 + 数字
+    if (parts[0].startsWith('上午')) {
+      hour = int.tryParse(parts[0].substring(2));
+      if (hour == null) return null;
+      return (hour == 12 ? 0 : hour, minute);
+    } else if (parts[0].startsWith('下午')) {
+      hour = int.tryParse(parts[0].substring(2));
+      if (hour == null) return null;
+      return (hour == 12 ? 12 : hour + 12, minute);
+    }
+
+    return null;
+  }
 }

@@ -6,6 +6,7 @@ import '../models/schedule.dart';
 import '../providers/schedule_provider.dart';
 import '../screens/schedule_form_screen.dart';
 import '../utils/constants.dart';
+import '../utils/date_utils.dart' as date_utils;
 
 
 class DayView extends StatelessWidget {
@@ -14,23 +15,6 @@ class DayView extends StatelessWidget {
   static const _hourHeight = 70.0;
   static const _startHour = 0;
   static const _hourCount = 24;
-  static final Map<String, Uint8List?> _appIconCache = {};
-
-  /// 获取 App 图标（缓存+懒加载）
-  static Future<Uint8List?> _getAppIcon(String packageName) async {
-    if (_appIconCache.containsKey(packageName)) {
-      return _appIconCache[packageName];
-    }
-    try {
-      final app = await DeviceApps.getApp(packageName, true);
-      if (app is ApplicationWithIcon) {
-        _appIconCache[packageName] = app.icon;
-        return app.icon;
-      }
-    } catch (_) {}
-    _appIconCache[packageName] = null; // 缓存失败结果
-    return null;
-  }
 
   /// 启动关联 App
   static Future<void> _launchApp(BuildContext context, String packageName) async {
@@ -60,6 +44,7 @@ class DayView extends StatelessWidget {
         return Column(
           children: [
             _buildDateHeader(date),
+            _buildWeekStrip(date, provider),
             const Divider(height: 1),
             Expanded(child: _buildTimeline(schedules, context)),
           ],
@@ -87,6 +72,56 @@ class DayView extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildWeekStrip(DateTime selectedDate, ScheduleProvider provider) {
+    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final weekday = selectedDate.weekday;
+    final monday = selectedDate.subtract(Duration(days: weekday - 1));
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      child: Row(
+        children: List.generate(7, (i) {
+          final date = monday.add(Duration(days: i));
+          final isSelected =
+              date_utils.DateUtils.isSameDay(date, selectedDate);
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => provider.selectDate(date),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppConstants.primaryColor : null,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      weekdays[i],
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isSelected ? Colors.white : Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      date.day.toString(),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : AppConstants.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -215,17 +250,18 @@ class DayView extends StatelessWidget {
   }
 
   Widget _buildScheduleBlock(Schedule schedule, BuildContext context) {
-    final parts = schedule.startTime!.split(':');
-    final hour = int.parse(parts[0]);
-    final minute = int.parse(parts[1]);
+    final parsed = date_utils.DateUtils.parseTimeOfDay(schedule.startTime!);
+    if (parsed == null) return const SizedBox.shrink();
+    final (hour, minute) = parsed;
     final top = (hour - _startHour) * _hourHeight + minute / 60 * _hourHeight;
 
     double durationHours = 1.0;
     if (schedule.endTime != null) {
-      final eParts = schedule.endTime!.split(':');
-      final eh = int.parse(eParts[0]);
-      final em = int.parse(eParts[1]);
-      durationHours = (eh - hour) + (em - minute) / 60;
+      final eParsed = date_utils.DateUtils.parseTimeOfDay(schedule.endTime!);
+      if (eParsed != null) {
+        final (eh, em) = eParsed;
+        durationHours = (eh - hour) + (em - minute) / 60;
+      }
     }
     final height = durationHours * _hourHeight;
 
@@ -235,7 +271,7 @@ class DayView extends StatelessWidget {
       top: top,
       left: 52,
       right: 8,
-      height: height.clamp(36, _hourHeight * 6),
+      height: height.clamp(40, _hourHeight * 6),
       child: GestureDetector(
         onTap: () => _openSchedule(context, schedule),
         child: Container(
@@ -281,42 +317,95 @@ class DayView extends StatelessWidget {
 
   /// 关联 App 图标按钮
   Widget _buildAppIcon(BuildContext context, String packageName, String? appName) {
-    return FutureBuilder<Uint8List?>(
-      future: _getAppIcon(packageName),
-      builder: (context, snapshot) {
-        final iconData = snapshot.data;
-        return GestureDetector(
-          onTap: () => _launchApp(context, packageName),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Tooltip(
-              message: appName ?? packageName,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: Colors.grey.shade100,
-                ),
-                child: iconData != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Image.memory(
-                          iconData,
-                          width: 18,
-                          height: 18,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
-                              Icons.open_in_new, size: 14, color: Colors.grey),
-                        ),
-                      )
-                    : const Icon(Icons.open_in_new,
-                        size: 14, color: Colors.grey),
-              ),
+    return _AppIconWidget(
+      packageName: packageName,
+      appName: appName,
+    );
+  }
+}
+
+/// 独立 StatefulWidget：异步加载 App 图标，避免在 build 阶段触发平台通道
+class _AppIconWidget extends StatefulWidget {
+  final String packageName;
+  final String? appName;
+
+  const _AppIconWidget({
+    required this.packageName,
+    this.appName,
+  });
+
+  @override
+  State<_AppIconWidget> createState() => _AppIconWidgetState();
+}
+
+class _AppIconWidgetState extends State<_AppIconWidget> {
+  Uint8List? _iconData;
+  static final Map<String, Uint8List?> _cache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadIcon();
+  }
+
+  Future<void> _loadIcon() async {
+    final pkg = widget.packageName;
+    if (pkg.isEmpty) return;
+
+    // 缓存命中
+    if (_cache.containsKey(pkg)) {
+      if (mounted) setState(() => _iconData = _cache[pkg]);
+      return;
+    }
+
+    // 异步加载
+    try {
+      final app = await DeviceApps.getApp(pkg, true);
+      if (app is ApplicationWithIcon) {
+        _cache[pkg] = app.icon;
+        if (mounted) setState(() => _iconData = app.icon);
+      } else {
+        _cache[pkg] = null;
+        if (mounted) setState(() => _iconData = null);
+      }
+    } catch (_) {
+      _cache[pkg] = null;
+      if (mounted) setState(() => _iconData = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => DayView._launchApp(context, widget.packageName),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4),
+        child: Tooltip(
+          message: widget.appName ?? widget.packageName,
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              color: Colors.grey.shade100,
             ),
+            child: _iconData != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.memory(
+                      _iconData!,
+                      width: 18,
+                      height: 18,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(
+                          Icons.open_in_new, size: 14, color: Colors.grey),
+                    ),
+                  )
+                : const Icon(Icons.open_in_new,
+                    size: 14, color: Colors.grey),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

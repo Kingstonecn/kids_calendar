@@ -5,9 +5,9 @@ import '../models/schedule.dart';
 import '../providers/schedule_provider.dart';
 import '../services/notification_service.dart';
 import '../widgets/category_picker.dart';
-import '../widgets/mini_calendar_dialog.dart';
 import '../widgets/app_picker_dialog.dart';
 import '../utils/constants.dart';
+import '../utils/date_utils.dart' as date_utils;
 
 class ScheduleFormScreen extends StatefulWidget {
   final Schedule? schedule;
@@ -94,11 +94,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   }
 
   TimeOfDay? _parseTime(String timeStr) {
-    final parts = timeStr.split(':');
-    if (parts.length != 2) return null;
-    final h = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    if (h == null || m == null) return null;
+    final parsed = date_utils.DateUtils.parseTimeOfDay(timeStr);
+    if (parsed == null) return null;
+    final (h, m) = parsed;
     return TimeOfDay(hour: h, minute: m);
   }
 
@@ -134,11 +132,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
               icon: const Icon(Icons.delete),
               onPressed: _confirmDelete,
             ),
-          IconButton(
-            icon: const Icon(Icons.content_copy),
-            tooltip: '复制到其他日期',
-            onPressed: _showCopyDialog,
-          ),
         ],
       ),
       body: Form(
@@ -646,8 +639,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       title: _titleController.text.trim(),
       description: _descController.text.trim(),
       date: _dateFormat.format(_selectedDate),
-      startTime: _startTime?.format(context),
-      endTime: _endTime?.format(context),
+      startTime: _startTime != null ? _timeLabel(_startTime!) : null,
+      endTime: _endTime != null ? _timeLabel(_endTime!) : null,
       category: _category,
       colorIndex: _colorIndex,
       hasAlarm: _hasAlarm,
@@ -728,58 +721,4 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     }
   }
 
-  Future<void> _showCopyDialog() async {
-    if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先填写日程标题')),
-      );
-      return;
-    }
-
-    final result = await showDialog<List<DateTime>>(
-      context: context,
-      builder: (ctx) => MiniCalendarDialog(
-        sourceDate: _selectedDate,
-      ),
-    );
-
-    if (result != null && result.isNotEmpty) {
-      if (!_formKey.currentState!.validate()) return;
-
-      final schedule = Schedule(
-        title: _titleController.text.trim(),
-        description: _descController.text.trim(),
-        date: _dateFormat.format(_selectedDate),
-        startTime: _startTime?.format(context),
-        endTime: _endTime?.format(context),
-        category: _category,
-        colorIndex: _colorIndex,
-        hasAlarm: _hasAlarm,
-        alarmMinutesBefore: _hasAlarm ? _alarmMinutesBefore : null,
-        appPackageName: _appPackageName,
-        appName: _appName,
-        isCompleted: false,
-        createdAt: DateTime.now().toIso8601String(),
-      );
-
-      int sourceId;
-      if (_isEditing && widget.schedule?.id != null) {
-        await context.read<ScheduleProvider>().updateSchedule(schedule);
-        sourceId = widget.schedule!.id!;
-      } else {
-        sourceId = await context.read<ScheduleProvider>().addSchedule(schedule);
-      }
-
-      final count = await context
-          .read<ScheduleProvider>()
-          .batchCopySchedule(schedule.copyWith(id: sourceId), result);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('成功复制到 $count 天')),
-        );
-        Navigator.pop(context, true);
-      }
-    }
-  }
 }

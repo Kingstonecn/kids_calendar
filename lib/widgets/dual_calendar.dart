@@ -10,8 +10,19 @@ import '../utils/constants.dart';
 
 class DualCalendar extends StatefulWidget {
   final ValueChanged<DateTime>? onDateSelected;
+  final bool isCopyMode;
+  final DateTime? copyRangeStart;
+  final DateTime? copyRangeEnd;
+  final ValueChanged<DateTime>? onCopyDateTap;
 
-  const DualCalendar({super.key, this.onDateSelected});
+  const DualCalendar({
+    super.key,
+    this.onDateSelected,
+    this.isCopyMode = false,
+    this.copyRangeStart,
+    this.copyRangeEnd,
+    this.onCopyDateTap,
+  });
 
   @override
   State<DualCalendar> createState() => _DualCalendarState();
@@ -326,6 +337,12 @@ class _DualCalendarState extends State<DualCalendar> {
           final isToday = date_utils.DateUtils.isSameDay(date, _today);
           final isSelected = date_utils.DateUtils.isSameDay(date, selectedDate);
           final isWeekend = date.weekday == 6 || date.weekday == 7;
+          final isInCopyRange = widget.isCopyMode &&
+              widget.copyRangeStart != null &&
+              (widget.copyRangeEnd == null
+                  ? date_utils.DateUtils.isSameDay(date, widget.copyRangeStart!)
+                  : !date.isBefore(widget.copyRangeStart!) &&
+                      !date.isAfter(widget.copyRangeEnd!));
 
           final dateStr = date_utils.DateUtils.formatDate(date);
           final daySchedules = monthSchedules[dateStr] ?? [];
@@ -349,8 +366,12 @@ class _DualCalendarState extends State<DualCalendar> {
 
           return GestureDetector(
             onTap: () {
-              provider.selectDate(date);
-              widget.onDateSelected?.call(date);
+              if (widget.isCopyMode) {
+                widget.onCopyDateTap?.call(date);
+              } else {
+                provider.selectDate(date);
+                widget.onDateSelected?.call(date);
+              }
             },
             child: Container(
               margin: const EdgeInsets.all(1),
@@ -361,8 +382,9 @@ class _DualCalendarState extends State<DualCalendar> {
                 bottom: 2,
               ),
               decoration: BoxDecoration(
-                color:
-                    isSelected
+                color: isInCopyRange
+                    ? Colors.amber.withOpacity(0.35)
+                    : isSelected
                         ? AppConstants.primaryColor.withOpacity(0.12)
                         : null,
                 borderRadius: BorderRadius.circular(config.cellRadius),

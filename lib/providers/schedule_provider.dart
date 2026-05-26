@@ -98,18 +98,68 @@ class ScheduleProvider extends ChangeNotifier {
     final schedules = <Schedule>[];
     for (final date in targetDates) {
       final copy = source.copyWith(
-        id: null,
         date: date_utils.DateUtils.formatDate(date),
         sourceId: source.id,
         isCompleted: false,
         createdAt: null,
         updatedAt: null,
       );
+      copy.id = null;
       schedules.add(copy);
     }
     final ids = await _dao.insertAll(schedules);
     await loadSchedulesForDate(_selectedDate);
     await loadAllDates();
+    return ids.length;
+  }
+
+  /// 批量复制日期范围内的所有日程到目标日期范围
+  Future<int> batchCopyDateRange({
+    required DateTime sourceStart,
+    required DateTime sourceEnd,
+    required DateTime targetStart,
+    required DateTime targetEnd,
+  }) async {
+    // 生成源日期列表
+    final sourceDays = <DateTime>[];
+    for (int i = 0; i <= sourceEnd.difference(sourceStart).inDays; i++) {
+      sourceDays.add(sourceStart.add(Duration(days: i)));
+    }
+
+    // 生成目标日期列表
+    final targetDays = <DateTime>[];
+    for (int i = 0; i <= targetEnd.difference(targetStart).inDays; i++) {
+      targetDays.add(targetStart.add(Duration(days: i)));
+    }
+
+    // 按循环映射：第 i 个目标日期对应第 (i % sourceLen) 个源日期
+    final allCopies = <Schedule>[];
+    for (int ti = 0; ti < targetDays.length; ti++) {
+      final si = ti % sourceDays.length;
+      final sourceDate = sourceDays[si];
+      final targetDate = targetDays[ti];
+
+      final dateStr = date_utils.DateUtils.formatDate(sourceDate);
+      final schedules = await _dao.getByDate(dateStr);
+
+      for (final s in schedules) {
+        final copy = s.copyWith(
+          date: date_utils.DateUtils.formatDate(targetDate),
+          sourceId: s.id,
+          isCompleted: false,
+          createdAt: null,
+          updatedAt: null,
+        );
+        copy.id = null;
+        allCopies.add(copy);
+      }
+    }
+
+    if (allCopies.isEmpty) return 0;
+    final ids = await _dao.insertAll(allCopies);
+    await loadSchedulesForDate(_selectedDate);
+    await loadAllDates();
+    await loadDatesForMonth(_selectedDate.year, _selectedDate.month);
     return ids.length;
   }
 
