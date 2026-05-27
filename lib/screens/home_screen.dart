@@ -32,6 +32,11 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? _targetStart;
   DateTime? _targetEnd;
 
+  // 清空模式状态
+  bool _isClearMode = false;
+  DateTime? _clearStart;
+  DateTime? _clearEnd;
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _enterCopyMode() {
     setState(() {
+      _exitClearMode();
       _copyPhase = _CopyPhase.source;
       _sourceStart = null;
       _sourceEnd = null;
@@ -74,6 +80,80 @@ class _HomeScreenState extends State<HomeScreen> {
       _targetStart = null;
       _targetEnd = null;
     });
+  }
+
+  void _enterClearMode() {
+    setState(() {
+      _isClearMode = true;
+      _clearStart = null;
+      _clearEnd = null;
+      _exitCopyMode();
+    });
+  }
+
+  void _exitClearMode() {
+    setState(() {
+      _isClearMode = false;
+      _clearStart = null;
+      _clearEnd = null;
+    });
+  }
+
+  void _onClearDateTap(DateTime date) {
+    setState(() {
+      if (_clearStart == null) {
+        _clearStart = date;
+        _clearEnd = null;
+      } else if (_clearEnd == null) {
+        if (date.isBefore(_clearStart!)) {
+          _clearEnd = _clearStart;
+          _clearStart = date;
+        } else {
+          _clearEnd = date;
+        }
+      } else {
+        _clearStart = date;
+        _clearEnd = null;
+      }
+    });
+  }
+
+  Future<void> _confirmClear() async {
+    if (_clearStart == null || _clearEnd == null) return;
+    final days = _clearEnd!.difference(_clearStart!).inDays + 1;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空日程'),
+        content: Text('确定要删除 ${_clearStart!.month}/${_clearStart!.day} 至 ${_clearEnd!.month}/${_clearEnd!.day}（$days天）的所有日程吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('全部删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final provider = context.read<ScheduleProvider>();
+    final count = await provider.deleteByDateRange(_clearStart!, _clearEnd!);
+    _exitClearMode();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已清空 $count 个日程')),
+      );
+    }
   }
 
   void _onCopyDateTap(DateTime date) {
@@ -268,34 +348,75 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _clearDateRange(BuildContext context) async {
-    DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
-      helpText: '选择要清空的时间范围',
-      confirmText: '清空',
-      cancelText: '取消',
-      builder: (ctx, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppConstants.primaryColor,
+  /// 清空模式操作提示横幅
+  Widget _buildClearModeBanner() {
+    final rangeComplete = _clearStart != null && _clearEnd != null;
+    final len = _clearStart != null && _clearEnd != null
+        ? _clearEnd!.difference(_clearStart!).inDays + 1
+        : 0;
+
+    String instruction;
+    if (_clearStart == null) {
+      instruction = '请点击选择要清空的开始日期';
+    } else if (_clearEnd == null) {
+      instruction = '请点击选择要清空的结束日期（已选 ${_clearStart!.month}/${_clearStart!.day}）';
+    } else {
+      instruction = '已选范围 $len 天（${_clearStart!.month}/${_clearStart!.day} - ${_clearEnd!.month}/${_clearEnd!.day}）';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: Colors.red.withOpacity(0.08),
+      child: Row(
+        children: [
+          const Icon(Icons.delete_sweep, size: 16, color: Colors.red),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '选择要清空的日程范围',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+                Text(
+                  instruction,
+                  style: const TextStyle(fontSize: 12, color: Colors.red),
+                ),
+              ],
             ),
           ),
-          child: child!,
-        );
-      },
+          TextButton(
+            onPressed: _exitClearMode,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('取消', style: TextStyle(fontSize: 12)),
+          ),
+          if (rangeComplete)
+            TextButton(
+              onPressed: _confirmClear,
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('确认清空', style: TextStyle(fontSize: 12, color: Colors.white)),
+            ),
+        ],
+      ),
     );
-    if (picked == null || !mounted) return;
-
-    final provider = context.read<ScheduleProvider>();
-    final count = await provider.deleteByDateRange(picked.start, picked.end);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已清空 $count 个日程')),
-      );
-    }
   }
 
   /// 第二层工具栏：模式切换、搜索、复制/清空
@@ -328,8 +449,9 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_viewMode == 0)
             _toolbarButton(
               icon: Icons.delete_sweep,
-              label: '清空',
-              onTap: () => _clearDateRange(context),
+              label: _isClearMode ? '清空中' : '清空',
+              color: _isClearMode ? Colors.red : null,
+              onTap: _isClearMode ? _exitClearMode : _enterClearMode,
             ),
           if (_viewMode == 1)
             _toolbarButton(
@@ -388,7 +510,10 @@ class _HomeScreenState extends State<HomeScreen> {
               isCopyMode: _isCopyMode,
               copyRangeStart: _copyPhase == _CopyPhase.source ? _sourceStart : _targetStart,
               copyRangeEnd: _copyPhase == _CopyPhase.source ? _sourceEnd : _targetEnd,
-              onCopyDateTap: _onCopyDateTap,
+              onCopyDateTap: _isClearMode ? _onClearDateTap : _onCopyDateTap,
+              isClearMode: _isClearMode,
+              clearRangeStart: _clearStart,
+              clearRangeEnd: _clearEnd,
             ),
             const SizedBox(height: 80),
           ],
@@ -518,6 +643,8 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildSecondaryToolbar(),
               if (_isCopyMode)
                 _buildCopyModeBanner(),
+              if (_isClearMode)
+                _buildClearModeBanner(),
               Expanded(
                 child: _viewMode == 0
                     ? _buildMonthView(provider)

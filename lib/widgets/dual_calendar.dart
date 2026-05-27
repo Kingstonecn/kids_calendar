@@ -14,6 +14,9 @@ class DualCalendar extends StatefulWidget {
   final DateTime? copyRangeStart;
   final DateTime? copyRangeEnd;
   final ValueChanged<DateTime>? onCopyDateTap;
+  final bool isClearMode;
+  final DateTime? clearRangeStart;
+  final DateTime? clearRangeEnd;
 
   const DualCalendar({
     super.key,
@@ -22,6 +25,9 @@ class DualCalendar extends StatefulWidget {
     this.copyRangeStart,
     this.copyRangeEnd,
     this.onCopyDateTap,
+    this.isClearMode = false,
+    this.clearRangeStart,
+    this.clearRangeEnd,
   });
 
   @override
@@ -309,6 +315,8 @@ class _DualCalendarState extends State<DualCalendar> {
     CalendarThemeConfig config,
     int firstDayOfWeek,
   ) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final lunarDisplayMode = themeProvider.lunarDisplayMode;
     final grid = _getMonthGrid(firstDayOfWeek);
     final selectedDate = provider.selectedDate;
     final monthSchedules = provider.monthSchedules;
@@ -343,6 +351,12 @@ class _DualCalendarState extends State<DualCalendar> {
                   ? date_utils.DateUtils.isSameDay(date, widget.copyRangeStart!)
                   : !date.isBefore(widget.copyRangeStart!) &&
                       !date.isAfter(widget.copyRangeEnd!));
+          final isInClearRange = widget.isClearMode &&
+              widget.clearRangeStart != null &&
+              (widget.clearRangeEnd == null
+                  ? date_utils.DateUtils.isSameDay(date, widget.clearRangeStart!)
+                  : !date.isBefore(widget.clearRangeStart!) &&
+                      !date.isAfter(widget.clearRangeEnd!));
 
           final dateStr = date_utils.DateUtils.formatDate(date);
           final daySchedules = monthSchedules[dateStr] ?? [];
@@ -368,6 +382,8 @@ class _DualCalendarState extends State<DualCalendar> {
             onTap: () {
               if (widget.isCopyMode) {
                 widget.onCopyDateTap?.call(date);
+              } else if (widget.isClearMode) {
+                widget.onCopyDateTap?.call(date);
               } else {
                 provider.selectDate(date);
                 widget.onDateSelected?.call(date);
@@ -382,11 +398,13 @@ class _DualCalendarState extends State<DualCalendar> {
                 bottom: 2,
               ),
               decoration: BoxDecoration(
-                color: isInCopyRange
-                    ? Colors.amber.withOpacity(0.35)
-                    : isSelected
-                        ? AppConstants.primaryColor.withOpacity(0.12)
-                        : null,
+                color: isInClearRange
+                    ? Colors.red.withOpacity(0.25)
+                    : isInCopyRange
+                        ? Colors.amber.withOpacity(0.35)
+                        : isSelected
+                            ? AppConstants.primaryColor.withOpacity(0.12)
+                            : null,
                 borderRadius: BorderRadius.circular(config.cellRadius),
               ),
               child: Column(
@@ -427,9 +445,9 @@ class _DualCalendarState extends State<DualCalendar> {
                     ),
                   ),
                   const SizedBox(height: 1),
-                  if (provider.lunarDisplayMode == 2)
+                  if (lunarDisplayMode == 2)
                     const SizedBox(height: 7)
-                  else if (provider.lunarDisplayMode == 0 && isHoliday)
+                  else if (lunarDisplayMode == 0 && isHoliday)
                     Text(
                       legalHoliday!,
                       style: TextStyle(
