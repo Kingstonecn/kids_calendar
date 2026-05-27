@@ -631,9 +631,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        title: const Text(
-          '亲子时光',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            Image.asset('assets/icon.png', width: 28, height: 28),
+            const SizedBox(width: 8),
+            const Text(
+              '亲子时光',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
       ),
       body: Consumer<ScheduleProvider>(

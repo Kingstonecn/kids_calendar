@@ -193,19 +193,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
               ),
               const SizedBox(height: 16),
 
-              // ═══ 描述 ═══
-              TextFormField(
-                controller: _descController,
-                decoration: const InputDecoration(
-                  labelText: '描述',
-                  hintText: '输入日程描述（可选）',
-                  prefixIcon: Icon(Icons.description),
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 20),
-
               // ═══ 开始时间 + 时长（一行）═══
               Row(
                 children: [
@@ -306,6 +293,19 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // ═══ 描述 ═══
+              TextFormField(
+                controller: _descController,
+                decoration: const InputDecoration(
+                  labelText: '描述',
+                  hintText: '输入日程描述（可选）',
+                  prefixIcon: Icon(Icons.description),
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 20),
 
               // ═══ 提醒 ═══
               SwitchListTile(
