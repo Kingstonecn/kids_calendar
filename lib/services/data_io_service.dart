@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/schedule.dart';
 import '../db/schedule_dao.dart';
@@ -152,14 +151,9 @@ class DataIoService {
   }
 
   Future<void> _shareFile(BuildContext context, String content, String filename, String mimeType) async {
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/$filename');
-    await file.writeAsString(content, encoding: utf8);
-
-    await Share.shareXFiles(
-      [XFile(file.path, mimeType: 'text/plain')],
+    await Share.share(
+      content,
       subject: '亲子时光 - 日程导出 ($filename)',
-      text: '亲子时光 - 日程导出 ($filename)',
     );
   }
 

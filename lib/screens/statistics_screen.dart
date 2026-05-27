@@ -295,7 +295,8 @@ class _CategoryChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final categories = AppConstants.categories;
+    final categories = AppConstants.categories.toList()
+      ..sort((a, b) => (stats[b] ?? 0).compareTo(stats[a] ?? 0));
     final maxVal = stats.values.fold<int>(0, (a, b) => a > b ? a : b);
     final xMax = maxVal > 0 ? maxVal * 1.3 : 5.0;
 
