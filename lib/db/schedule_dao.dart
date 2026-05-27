@@ -140,6 +140,34 @@ class ScheduleDao {
     );
   }
 
+  /// 获取所有有日程的年份
+  Future<List<int>> getYearsWithSchedules() async {
+    final db = await _db;
+    final maps = await db.rawQuery(
+        "SELECT DISTINCT CAST(substr(date, 1, 4) AS INTEGER) as year FROM schedules ORDER BY year"
+    );
+    return maps.map((m) => m['year'] as int).toList();
+  }
+
+  /// 获取指定年份的分类统计
+  Future<Map<String, int>> getCategoryStats(int year) async {
+    final db = await _db;
+    final startDate = '$year-01-01';
+    final endDate = '${year + 1}-01-01';
+    final maps = await db.query(
+      'schedules',
+      columns: ['category'],
+      where: 'date >= ? AND date < ?',
+      whereArgs: [startDate, endDate],
+    );
+    final stats = <String, int>{};
+    for (final row in maps) {
+      final cat = (row['category'] as String?) ?? '其他';
+      stats[cat] = (stats[cat] ?? 0) + 1;
+    }
+    return stats;
+  }
+
   /// 获取指定年份每月的日程数和已打卡数
   Future<Map<int, Map<String, int>>> getMonthlyStats(int year) async {
     final db = await _db;

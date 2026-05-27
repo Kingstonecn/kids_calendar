@@ -285,6 +285,13 @@ class DayView extends StatelessWidget {
                 ),
               ),
             ),
+            if (schedule.appPackageName != null)
+              _buildAppIcon(
+                context,
+                schedule.appPackageName!,
+                schedule.appName,
+                size: 30,
+              ),
             // 打卡按钮
             if (schedule.id != null)
               GestureDetector(
@@ -295,21 +302,14 @@ class DayView extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 4),
                   child: Icon(
                     schedule.isCompleted
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
                     size: 20,
                     color: schedule.isCompleted
                         ? AppConstants.primaryColor
                         : Colors.grey.shade400,
                   ),
                 ),
-              ),
-            if (schedule.appPackageName != null)
-              _buildAppIcon(
-                context,
-                schedule.appPackageName!,
-                schedule.appName,
-                size: 30,
               ),
           ],
         ),

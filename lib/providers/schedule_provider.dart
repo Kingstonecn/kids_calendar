@@ -186,4 +186,14 @@ class ScheduleProvider extends ChangeNotifier {
   Future<Map<int, Map<String, int>>> getMonthlyStats(int year) async {
     return await _dao.getMonthlyStats(year);
   }
+
+  /// 获取分类统计
+  Future<Map<String, int>> getCategoryStats(int year) async {
+    return await _dao.getCategoryStats(year);
+  }
+
+  /// 获取有日程的年份列表
+  Future<List<int>> getYearsWithSchedules() async {
+    return await _dao.getYearsWithSchedules();
+  }
 }
