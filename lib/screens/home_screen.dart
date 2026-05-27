@@ -18,7 +18,7 @@ enum _CopyPhase { none, source, target }
 class _HomeScreenState extends State<HomeScreen> {
   int _viewMode = 0; // 0=月, 1=日
 
-  static const _modeLabels = ['月', '日'];
+  static const _modeLabels = ['月视图', '日视图'];
   static const _modeIcons = [
     Icons.calendar_view_month,
     Icons.calendar_view_day,
@@ -268,6 +268,36 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _clearDateRange(BuildContext context) async {
+    DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+      helpText: '选择要清空的时间范围',
+      confirmText: '清空',
+      cancelText: '取消',
+      builder: (ctx, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppConstants.primaryColor,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked == null || !mounted) return;
+
+    final provider = context.read<ScheduleProvider>();
+    final count = await provider.deleteByDateRange(picked.start, picked.end);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已清空 $count 个日程')),
+      );
+    }
+  }
+
   /// 第二层工具栏：模式切换、搜索、复制/清空
   Widget _buildSecondaryToolbar() {
     return Container(
@@ -294,6 +324,12 @@ class _HomeScreenState extends State<HomeScreen> {
               label: _isCopyMode ? '复制中' : '复制',
               color: _isCopyMode ? AppConstants.primaryColor : null,
               onTap: _isCopyMode ? _exitCopyMode : _enterCopyMode,
+            ),
+          if (_viewMode == 0)
+            _toolbarButton(
+              icon: Icons.delete_sweep,
+              label: '清空',
+              onTap: () => _clearDateRange(context),
             ),
           if (_viewMode == 1)
             _toolbarButton(

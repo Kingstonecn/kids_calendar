@@ -140,6 +140,16 @@ class ScheduleDao {
     );
   }
 
+  /// 删除日期范围内的所有日程
+  Future<int> deleteByDateRange(String startDate, String endDate) async {
+    final db = await _db;
+    return await db.delete(
+      'schedules',
+      where: 'date >= ? AND date <= ?',
+      whereArgs: [startDate, endDate],
+    );
+  }
+
   /// 获取所有有日程的年份
   Future<List<int>> getYearsWithSchedules() async {
     final db = await _db;

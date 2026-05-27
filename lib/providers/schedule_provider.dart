@@ -113,6 +113,17 @@ class ScheduleProvider extends ChangeNotifier {
     return ids.length;
   }
 
+  /// 删除日期范围内的所有日程
+  Future<int> deleteByDateRange(DateTime start, DateTime end) async {
+    final startStr = date_utils.DateUtils.formatDate(start);
+    final endStr = date_utils.DateUtils.formatDate(end);
+    final count = await _dao.deleteByDateRange(startStr, endStr);
+    await loadSchedulesForDate(_selectedDate);
+    await loadAllDates();
+    await loadDatesForMonth(_selectedDate.year, _selectedDate.month);
+    return count;
+  }
+
   /// 批量复制日期范围内的所有日程到目标日期范围
   Future<int> batchCopyDateRange({
     required DateTime sourceStart,

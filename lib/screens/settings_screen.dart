@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/schedule_provider.dart';
+import '../services/data_io_service.dart';
 import '../utils/app_themes.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -153,8 +155,127 @@ class SettingsScreen extends StatelessWidget {
               );
             },
           ),
+          const SizedBox(height: 24),
+          // 数据导入导出
+          const Text(
+            '数据管理',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '导出日程备份或从备份中恢复',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+          _buildExportImportSection(context),
         ],
       ),
     );
+  }
+
+  Widget _buildExportImportSection(BuildContext context) {
+    return Column(
+      children: [
+        // 导出
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _doExport(context, 'csv'),
+                icon: const Icon(Icons.table_chart, size: 18),
+                label: const Text('导出 CSV'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _doExport(context, 'json'),
+                icon: const Icon(Icons.code, size: 18),
+                label: const Text('导出 JSON'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // 导入
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _doImport(context, 'csv'),
+                icon: const Icon(Icons.file_open, size: 18),
+                label: const Text('导入 CSV'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _doImport(context, 'json'),
+                icon: const Icon(Icons.file_open, size: 18),
+                label: const Text('导入 JSON'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _doExport(BuildContext context, String format) async {
+    final service = DataIoService();
+    try {
+      if (format == 'csv') {
+        await service.exportCsv(context);
+      } else {
+        await service.exportJson(context);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导出失败: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _doImport(BuildContext context, String format) async {
+    final service = DataIoService();
+    try {
+      final count = format == 'csv'
+          ? await service.importCsv(context)
+          : await service.importJson(context);
+
+      if (!context.mounted) return;
+
+      if (count > 0) {
+        // 刷新数据
+        context.read<ScheduleProvider>().loadAllDates();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('成功导入 $count 个日程')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未找到有效的日程数据')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导入失败: $e')),
+        );
+      }
+    }
   }
 }
