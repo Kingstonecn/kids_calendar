@@ -427,8 +427,9 @@ class _DualCalendarState extends State<DualCalendar> {
                     ),
                   ),
                   const SizedBox(height: 1),
-                  // 法定假日优先，不显示农历
-                  if (isHoliday)
+                  if (provider.lunarDisplayMode == 2)
+                    const SizedBox(height: 7)
+                  else if (provider.lunarDisplayMode == 0 && isHoliday)
                     Text(
                       legalHoliday!,
                       style: TextStyle(
@@ -439,7 +440,7 @@ class _DualCalendarState extends State<DualCalendar> {
                             : AppConstants.accentColor.withOpacity(0.4),
                       ),
                     )
-                  else if (lunar.isNotEmpty && config.showLunar)
+                  else if (lunar.isNotEmpty)
                     Text(
                       lunar,
                       style: TextStyle(

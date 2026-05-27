@@ -163,6 +163,14 @@ class ScheduleProvider extends ChangeNotifier {
     return ids.length;
   }
 
+  /// 切换打卡状态
+  Future<void> toggleCheckIn(int scheduleId) async {
+    final schedule = _currentSchedules.firstWhere((s) => s.id == scheduleId);
+    schedule.isCompleted = !schedule.isCompleted;
+    await _dao.update(schedule);
+    notifyListeners();
+  }
+
   /// 获取某日的日程列表
   Future<List<Schedule>> getSchedulesForDate(DateTime date) async {
     final dateStr = date_utils.DateUtils.formatDate(date);
@@ -172,5 +180,10 @@ class ScheduleProvider extends ChangeNotifier {
   /// 搜索日程
   Future<List<Schedule>> searchSchedules(String keyword) async {
     return await _dao.search(keyword);
+  }
+
+  /// 获取月度统计
+  Future<Map<int, Map<String, int>>> getMonthlyStats(int year) async {
+    return await _dao.getMonthlyStats(year);
   }
 }

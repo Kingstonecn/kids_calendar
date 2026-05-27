@@ -110,6 +110,49 @@ class SettingsScreen extends StatelessWidget {
               );
             },
           ),
+          const SizedBox(height: 24),
+          // 农历显示模式
+          const Text(
+            '农历显示',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '选择日历中的农历和节日显示方式',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, _) {
+              return DropdownButtonFormField<int>(
+                value: themeProvider.lunarDisplayMode,
+                decoration: const InputDecoration(
+                  labelText: '显示模式',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.calendar_view_month),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 0,
+                    child: Text('显示节日和农历'),
+                  ),
+                  DropdownMenuItem(
+                    value: 1,
+                    child: Text('仅显示农历'),
+                  ),
+                  DropdownMenuItem(
+                    value: 2,
+                    child: Text('不显示节日和农历'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) themeProvider.setLunarDisplayMode(value);
+                },
+              );
+            },
+          ),
         ],
       ),
     );

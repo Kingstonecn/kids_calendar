@@ -24,6 +24,7 @@ void main() async {
           create: (_) => ThemeProvider(
             themeIndex: settings['themeIndex']!,
             firstDayOfWeek: settings['firstDayOfWeek']!,
+            lunarDisplayMode: settings['lunarDisplayMode']!,
           ),
         ),
       ],

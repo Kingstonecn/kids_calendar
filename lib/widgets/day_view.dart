@@ -254,18 +254,18 @@ class DayView extends StatelessWidget {
       left: 52,
       right: 8,
       height: height.clamp(20, _hourHeight * 6),
-      child: GestureDetector(
-        onTap: () => _openSchedule(context, schedule),
-        child: Container(
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(4),
-            border: Border(left: BorderSide(color: color, width: 3)),
-          ),
-          padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
-          child: Row(
-            children: [
-              Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border(left: BorderSide(color: color, width: 3)),
+        ),
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
+        child: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _openSchedule(context, schedule),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -284,15 +284,34 @@ class DayView extends StatelessWidget {
                   ],
                 ),
               ),
-              if (schedule.appPackageName != null)
-                _buildAppIcon(
-                  context,
-                  schedule.appPackageName!,
-                  schedule.appName,
-                  size: 30,
+            ),
+            // 打卡按钮
+            if (schedule.id != null)
+              GestureDetector(
+                onTap: () => context
+                    .read<ScheduleProvider>()
+                    .toggleCheckIn(schedule.id!),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    schedule.isCompleted
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 20,
+                    color: schedule.isCompleted
+                        ? AppConstants.primaryColor
+                        : Colors.grey.shade400,
+                  ),
                 ),
-            ],
-          ),
+              ),
+            if (schedule.appPackageName != null)
+              _buildAppIcon(
+                context,
+                schedule.appPackageName!,
+                schedule.appName,
+                size: 30,
+              ),
+          ],
         ),
       ),
     );

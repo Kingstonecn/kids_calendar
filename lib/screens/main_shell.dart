@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'statistics_screen.dart';
 import 'settings_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -14,6 +15,7 @@ class _MainShellState extends State<MainShell> {
 
   final List<Widget> _pages = const [
     HomeScreen(),
+    StatisticsScreen(),
     SettingsScreen(),
   ];
 
@@ -34,6 +36,10 @@ class _MainShellState extends State<MainShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_month),
             label: '时光表',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: '统计',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

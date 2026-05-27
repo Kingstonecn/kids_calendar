@@ -139,4 +139,32 @@ class ScheduleDao {
       whereArgs: [sourceId],
     );
   }
+
+  /// 获取指定年份每月的日程数和已打卡数
+  Future<Map<int, Map<String, int>>> getMonthlyStats(int year) async {
+    final db = await _db;
+    final startDate = '$year-01-01';
+    final endDate = '${year + 1}-01-01';
+    final maps = await db.query(
+      'schedules',
+      columns: ['date', 'is_completed'],
+      where: 'date >= ? AND date < ?',
+      whereArgs: [startDate, endDate],
+    );
+    final stats = <int, Map<String, int>>{};
+    for (int m = 1; m <= 12; m++) {
+      stats[m] = {'total': 0, 'completed': 0};
+    }
+    for (final row in maps) {
+      final dateStr = row['date'] as String;
+      final month = int.tryParse(dateStr.substring(5, 7)) ?? 0;
+      if (month >= 1 && month <= 12) {
+        stats[month]!['total'] = stats[month]!['total']! + 1;
+        if ((row['is_completed'] as int?) == 1) {
+          stats[month]!['completed'] = stats[month]!['completed']! + 1;
+        }
+      }
+    }
+    return stats;
+  }
 }
