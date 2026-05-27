@@ -134,29 +134,25 @@ class DayView extends StatelessWidget {
       controller: ScrollController(initialScrollOffset: 9 * _hourHeight),
       child: Column(
         children: [
-          SizedBox(
-            height: totalHeight,
-            child: Stack(
-              children: [
-                // 点击空白处创建日程
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTapUp: (details) {
-                      final tapY = details.localPosition.dy;
-                      final hour = (tapY / _hourHeight).floor().clamp(0, 23);
-                      final minute = ((tapY % _hourHeight) / _hourHeight * 60).round().clamp(0, 59);
-                      _createScheduleAt(context, date, hour, minute);
-                    },
-                  ),
-                ),
-                // 小时格线
-                ...List.generate(_hourCount, (i) => _buildHourLine(i)),
-                // 当前时间指示线
-                _buildNowLine(),
-                // 日程块
-                ...timed.map((s) => _buildScheduleBlock(s, context)),
-              ],
+          GestureDetector(
+            onTapUp: (details) {
+              final tapY = details.localPosition.dy;
+              final hour = (tapY / _hourHeight).floor().clamp(0, 23);
+              final minute = ((tapY % _hourHeight) / _hourHeight * 60).round().clamp(0, 59);
+              _createScheduleAt(context, date, hour, minute);
+            },
+            child: SizedBox(
+              height: totalHeight,
+              child: Stack(
+                children: [
+                  // 小时格线
+                  ...List.generate(_hourCount, (i) => _buildHourLine(i)),
+                  // 当前时间指示线
+                  _buildNowLine(),
+                  // 日程块
+                  ...timed.map((s) => _buildScheduleBlock(s, context)),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 80),

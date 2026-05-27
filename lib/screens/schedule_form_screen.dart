@@ -630,6 +630,44 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
   Future<void> _saveSchedule() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_startTime == null) return;
+
+    final newStartMinutes = _startTime!.hour * 60 + _startTime!.minute;
+    final newEndMinutes = newStartMinutes + _durationMinutes;
+
+    // 检查时间冲突
+    final provider = context.read<ScheduleProvider>();
+    final existingSchedules = await provider.getSchedulesForDate(_selectedDate);
+    for (final s in existingSchedules) {
+      if (s.id == widget.schedule?.id) continue; // 排除自身
+      if (s.startTime == null) continue;
+      final parsed = date_utils.DateUtils.parseTimeOfDay(s.startTime!);
+      if (parsed == null) continue;
+      final (sh, sm) = parsed;
+      final existingStart = sh * 60 + sm;
+
+      int existingEnd;
+      if (s.endTime != null) {
+        final eParsed = date_utils.DateUtils.parseTimeOfDay(s.endTime!);
+        if (eParsed != null) {
+          final (eh, em) = eParsed;
+          existingEnd = eh * 60 + em;
+        } else {
+          existingEnd = existingStart + 60;
+        }
+      } else {
+        existingEnd = existingStart + 60;
+      }
+
+      if (newStartMinutes < existingEnd && existingStart < newEndMinutes) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('时间冲突：该时段已有其他日程')),
+          );
+        }
+        return;
+      }
+    }
 
     final schedule = Schedule(
       id: widget.schedule?.id,
@@ -650,8 +688,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       appName: _appName,
       createdAt: widget.schedule?.createdAt,
     );
-
-    final provider = context.read<ScheduleProvider>();
 
     if (_isEditing) {
       await provider.updateSchedule(schedule);
