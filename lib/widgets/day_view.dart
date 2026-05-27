@@ -138,8 +138,7 @@ class DayView extends StatelessWidget {
             onTapUp: (details) {
               final tapY = details.localPosition.dy;
               final hour = (tapY / _hourHeight).floor().clamp(0, 23);
-              final minute = ((tapY % _hourHeight) / _hourHeight * 60).round().clamp(0, 59);
-              _createScheduleAt(context, date, hour, minute);
+              _createScheduleAt(context, date, hour, 0);
             },
             child: SizedBox(
               height: totalHeight,

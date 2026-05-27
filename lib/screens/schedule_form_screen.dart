@@ -697,24 +697,32 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     }
 
     if (_hasAlarm && schedule.id != null && _startTime != null) {
-      final alarmDate = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        _startTime!.hour,
-        _startTime!.minute,
-      );
-      await NotificationService().scheduleNotification(
-        scheduleId: schedule.id!,
-        title: '日程提醒: ${schedule.title}',
-        body: schedule.description.isNotEmpty
-            ? schedule.description
-            : '您有一个日程即将开始',
-        scheduledDate: alarmDate,
-        minutesBefore: _alarmMinutesBefore ?? 0,
-      );
+      try {
+        final alarmDate = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          _startTime!.hour,
+          _startTime!.minute,
+        );
+        await NotificationService().scheduleNotification(
+          scheduleId: schedule.id!,
+          title: '日程提醒: ${schedule.title}',
+          body: schedule.description.isNotEmpty
+              ? schedule.description
+              : '您有一个日程即将开始',
+          scheduledDate: alarmDate,
+          minutesBefore: _alarmMinutesBefore ?? 0,
+        );
+      } catch (_) {
+        // 通知设置失败不影响保存
+      }
     } else if (widget.schedule?.id != null) {
-      await NotificationService().cancelNotification(widget.schedule!.id!);
+      try {
+        await NotificationService().cancelNotification(widget.schedule!.id!);
+      } catch (_) {
+        // 通知取消失败不影响保存
+      }
     }
 
     if (mounted) {
@@ -746,10 +754,14 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     );
 
     if (confirmed == true && widget.schedule?.id != null) {
-      await context
-          .read<ScheduleProvider>()
-          .deleteSchedule(widget.schedule!.id!);
-      await NotificationService().cancelNotification(widget.schedule!.id!);
+      try {
+        await context
+            .read<ScheduleProvider>()
+            .deleteSchedule(widget.schedule!.id!);
+        await NotificationService().cancelNotification(widget.schedule!.id!);
+      } catch (_) {
+        // 删除失败不影响退出
+      }
       if (mounted) Navigator.pop(context, true);
     }
   }
