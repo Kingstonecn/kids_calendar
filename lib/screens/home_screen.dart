@@ -268,6 +268,99 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// 第二层工具栏：模式切换、搜索、复制/清空
+  Widget _buildSecondaryToolbar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _toolbarButton(
+            icon: _modeIcons[_viewMode],
+            label: _modeLabels[_viewMode],
+            onTap: _switchMode,
+          ),
+          _toolbarButton(
+            icon: Icons.search,
+            label: '搜索',
+            onTap: () => _showSearch(context),
+          ),
+          if (_viewMode == 0)
+            _toolbarButton(
+              icon: _isCopyMode ? Icons.content_copy : Icons.file_copy_outlined,
+              label: _isCopyMode ? '复制中' : '复制',
+              color: _isCopyMode ? AppConstants.primaryColor : null,
+              onTap: _isCopyMode ? _exitCopyMode : _enterCopyMode,
+            ),
+          if (_viewMode == 1)
+            _toolbarButton(
+              icon: Icons.delete_sweep,
+              label: '清空',
+              onTap: () => _clearDaySchedules(context),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toolbarButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    return SizedBox(
+      width: 64,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 6),
+            Icon(icon, size: 22, color: color ?? AppConstants.textPrimary),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, color: color ?? AppConstants.textPrimary),
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthView(ScheduleProvider provider) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        await provider.loadAllDates();
+        await provider.loadDatesForMonth(
+          DateTime.now().year,
+          DateTime.now().month,
+        );
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            DualCalendar(
+              onDateSelected: _onDateSelected,
+              isCopyMode: _isCopyMode,
+              copyRangeStart: _copyPhase == _CopyPhase.source ? _sourceStart : _targetStart,
+              copyRangeEnd: _copyPhase == _CopyPhase.source ? _sourceEnd : _targetEnd,
+              onCopyDateTap: _onCopyDateTap,
+            ),
+            const SizedBox(height: 80),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCopyModeBanner() {
     final isSourcePhase = _copyPhase == _CopyPhase.source;
     final start = isSourcePhase ? _sourceStart : _targetStart;
@@ -381,117 +474,21 @@ class _HomeScreenState extends State<HomeScreen> {
           '亲子时光',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        actionsPadding: EdgeInsets.zero,
-        actions: [
-          SizedBox(
-            width: 40,
-            child: GestureDetector(
-              onTap: _switchMode,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(_modeIcons[_viewMode], size: 22),
-                  Text(_modeLabels[_viewMode],
-                      style: const TextStyle(fontSize: 10)),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 40,
-            child: GestureDetector(
-              onTap: () => _showSearch(context),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search, size: 22),
-                  Text('搜索', style: TextStyle(fontSize: 10)),
-                ],
-              ),
-            ),
-          ),
-          if (_viewMode == 0)
-            SizedBox(
-              width: 40,
-              child: GestureDetector(
-                onTap: _isCopyMode ? _exitCopyMode : _enterCopyMode,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _isCopyMode ? Icons.content_copy : Icons.file_copy_outlined,
-                      size: 22,
-                      color: _isCopyMode ? AppConstants.primaryColor : null,
-                    ),
-                    Text(
-                      _isCopyMode ? '复制中' : '复制',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: _isCopyMode ? AppConstants.primaryColor : null,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          if (_viewMode == 1)
-            SizedBox(
-              width: 40,
-              child: GestureDetector(
-                onTap: () => _clearDaySchedules(context),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.delete_sweep, size: 22),
-                    Text('清空', style: TextStyle(fontSize: 10)),
-                  ],
-                ),
-              ),
-            ),
-        ],
       ),
       body: Consumer<ScheduleProvider>(
         builder: (context, provider, _) {
-          switch (_viewMode) {
-            case 0:
-              return Column(
-                children: [
-                  if (_isCopyMode)
-                    _buildCopyModeBanner(),
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: () async {
-                        await provider.loadAllDates();
-                        await provider.loadDatesForMonth(
-                          DateTime.now().year,
-                          DateTime.now().month,
-                        );
-                      },
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 8),
-                            DualCalendar(
-                              onDateSelected: _onDateSelected,
-                              isCopyMode: _isCopyMode,
-                              copyRangeStart: _copyPhase == _CopyPhase.source ? _sourceStart : _targetStart,
-                              copyRangeEnd: _copyPhase == _CopyPhase.source ? _sourceEnd : _targetEnd,
-                              onCopyDateTap: _onCopyDateTap,
-                            ),
-                            const SizedBox(height: 80),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            case 1:
-              return const DayView();
-            default:
-              return const SizedBox.shrink();
-          }
+          return Column(
+            children: [
+              _buildSecondaryToolbar(),
+              if (_isCopyMode)
+                _buildCopyModeBanner(),
+              Expanded(
+                child: _viewMode == 0
+                    ? _buildMonthView(provider)
+                    : const DayView(),
+              ),
+            ],
+          );
         },
       ),
       floatingActionButton: _isCopyMode
