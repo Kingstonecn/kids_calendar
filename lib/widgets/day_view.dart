@@ -127,7 +127,6 @@ class DayView extends StatelessWidget {
   }
 
   Widget _buildTimeline(List<Schedule> schedules, DateTime date, ScheduleProvider provider, BuildContext context) {
-    final allDay = schedules.where((s) => s.startTime == null).toList();
     final timed = schedules.where((s) => s.startTime != null).toList();
     final totalHeight = _hourCount * _hourHeight;
 
@@ -135,8 +134,6 @@ class DayView extends StatelessWidget {
       controller: ScrollController(initialScrollOffset: 9 * _hourHeight),
       child: Column(
         children: [
-          if (allDay.isNotEmpty)
-            ...allDay.map((s) => _allDayTile(s, context)),
           SizedBox(
             height: totalHeight,
             child: Stack(
@@ -238,43 +235,6 @@ class DayView extends StatelessWidget {
     );
   }
 
-  /// 全天事件
-  Widget _allDayTile(Schedule schedule, BuildContext context) {
-    final color = AppConstants.getCategoryColorByName(schedule.category);
-    return GestureDetector(
-      onTap: () => _openSchedule(context, schedule),
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          border: Border(left: BorderSide(color: color, width: 3)),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          children: [
-            const Text('📅 ', style: TextStyle(fontSize: 12)),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(schedule.title,
-                  style: const TextStyle(fontSize: 12)),
-            ),
-            if (schedule.appPackageName != null)
-              _buildAppIcon(
-                context,
-                schedule.appPackageName!,
-                schedule.appName,
-                size: 22,
-              ),
-            const SizedBox(width: 4),
-            const Text('全天',
-                style: TextStyle(fontSize: 10, color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildScheduleBlock(Schedule schedule, BuildContext context) {
     final parsed = date_utils.DateUtils.parseTimeOfDay(schedule.startTime!);
@@ -334,7 +294,7 @@ class DayView extends StatelessWidget {
                   context,
                   schedule.appPackageName!,
                   schedule.appName,
-                  size: 34,
+                  size: 30,
                 ),
             ],
           ),

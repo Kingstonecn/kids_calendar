@@ -25,7 +25,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   late TextEditingController _descController;
   late DateTime _selectedDate;
   late TimeOfDay? _startTime;
-  late int _durationMinutes; // -1 = 全天, 0+ = 持续分钟数
+  late int _durationMinutes; // 持续分钟数
   late String _category;
   late int _colorIndex;
   late bool _hasAlarm;
@@ -34,9 +34,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   String? _appName;
   bool _isEditing = false;
 
-  static const String _allDayLabel = '全天';
   static const List<int> _durationOptions = [
-    -1, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 360, 420, 480, 540, 600,
+    30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 360, 420, 480, 540, 600,
   ];
 
   static final List<TimeOfDay> _timeOptions = () {
@@ -70,20 +69,18 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         ? _parseTime(schedule!.startTime!)
         : widget.initialTime;
 
-    // 计算时长: 新建默认30分钟; 编辑时有起止时间则算差值, 否则为全天
-    if (widget.schedule == null) {
-      _durationMinutes = 30;
-    } else if (schedule?.startTime != null && schedule?.endTime != null) {
+    // 计算时长: 默认30分钟; 有起止时间则算差值
+    if (schedule?.startTime != null && schedule?.endTime != null) {
       final st = _parseTime(schedule!.startTime!);
       final et = _parseTime(schedule.endTime!);
       if (st != null && et != null) {
         _durationMinutes = (et.hour * 60 + et.minute) - (st.hour * 60 + st.minute);
         if (_durationMinutes <= 0) _durationMinutes = 30;
       } else {
-        _durationMinutes = -1;
+        _durationMinutes = 30;
       }
     } else {
-      _durationMinutes = -1;
+      _durationMinutes = 30;
     }
 
     _category = schedule?.category ?? '亲子';
@@ -102,7 +99,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   }
 
   String _durationLabel(int minutes) {
-    if (minutes == -1) return _allDayLabel;
     if (minutes < 60) return '${minutes}分钟';
     final h = minutes ~/ 60;
     final m = minutes % 60;
@@ -117,7 +113,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   }
 
   TimeOfDay? get _endTime {
-    if (_startTime == null || _durationMinutes == -1) return null;
+    if (_startTime == null) return null;
     final total = _startTime!.hour * 60 + _startTime!.minute + _durationMinutes;
     return TimeOfDay(hour: total ~/ 60, minute: total % 60);
   }
