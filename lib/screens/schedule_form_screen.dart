@@ -637,36 +637,40 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
     // 检查时间冲突
     final provider = context.read<ScheduleProvider>();
-    final existingSchedules = await provider.getSchedulesForDate(_selectedDate);
-    for (final s in existingSchedules) {
-      if (s.id == widget.schedule?.id) continue; // 排除自身
-      if (s.startTime == null) continue;
-      final parsed = date_utils.DateUtils.parseTimeOfDay(s.startTime!);
-      if (parsed == null) continue;
-      final (sh, sm) = parsed;
-      final existingStart = sh * 60 + sm;
+    try {
+      final existingSchedules = await provider.getSchedulesForDate(_selectedDate);
+      for (final s in existingSchedules) {
+        if (s.id == widget.schedule?.id) continue;
+        if (s.startTime == null) continue;
+        final parsed = date_utils.DateUtils.parseTimeOfDay(s.startTime!);
+        if (parsed == null) continue;
+        final (sh, sm) = parsed;
+        final existingStart = sh * 60 + sm;
 
-      int existingEnd;
-      if (s.endTime != null) {
-        final eParsed = date_utils.DateUtils.parseTimeOfDay(s.endTime!);
-        if (eParsed != null) {
-          final (eh, em) = eParsed;
-          existingEnd = eh * 60 + em;
+        int existingEnd;
+        if (s.endTime != null) {
+          final eParsed = date_utils.DateUtils.parseTimeOfDay(s.endTime!);
+          if (eParsed != null) {
+            final (eh, em) = eParsed;
+            existingEnd = eh * 60 + em;
+          } else {
+            existingEnd = existingStart + 60;
+          }
         } else {
           existingEnd = existingStart + 60;
         }
-      } else {
-        existingEnd = existingStart + 60;
-      }
 
-      if (newStartMinutes < existingEnd && existingStart < newEndMinutes) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('时间冲突：该时段已有其他日程')),
-          );
+        if (newStartMinutes < existingEnd && existingStart < newEndMinutes) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('时间冲突：该时段已有其他日程')),
+            );
+          }
+          return;
         }
-        return;
       }
+    } catch (_) {
+      // 查询冲突失败也继续保存
     }
 
     final schedule = Schedule(
@@ -689,40 +693,45 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       createdAt: widget.schedule?.createdAt,
     );
 
-    if (_isEditing) {
-      await provider.updateSchedule(schedule);
-    } else {
-      final id = await provider.addSchedule(schedule);
-      schedule.id = id;
-    }
+    try {
+      if (_isEditing) {
+        await provider.updateSchedule(schedule);
+      } else {
+        final id = await provider.addSchedule(schedule);
+        schedule.id = id;
+      }
 
-    if (_hasAlarm && schedule.id != null && _startTime != null) {
-      try {
-        final alarmDate = DateTime(
-          _selectedDate.year,
-          _selectedDate.month,
-          _selectedDate.day,
-          _startTime!.hour,
-          _startTime!.minute,
-        );
-        await NotificationService().scheduleNotification(
-          scheduleId: schedule.id!,
-          title: '日程提醒: ${schedule.title}',
-          body: schedule.description.isNotEmpty
-              ? schedule.description
-              : '您有一个日程即将开始',
-          scheduledDate: alarmDate,
-          minutesBefore: _alarmMinutesBefore ?? 0,
-        );
-      } catch (_) {
-        // 通知设置失败不影响保存
+      if (_hasAlarm && schedule.id != null && _startTime != null) {
+        try {
+          final alarmDate = DateTime(
+            _selectedDate.year,
+            _selectedDate.month,
+            _selectedDate.day,
+            _startTime!.hour,
+            _startTime!.minute,
+          );
+          await NotificationService().scheduleNotification(
+            scheduleId: schedule.id!,
+            title: '日程提醒: ${schedule.title}',
+            body: schedule.description.isNotEmpty
+                ? schedule.description
+                : '您有一个日程即将开始',
+            scheduledDate: alarmDate,
+            minutesBefore: _alarmMinutesBefore ?? 0,
+          );
+        } catch (_) {}
+      } else if (widget.schedule?.id != null) {
+        try {
+          await NotificationService().cancelNotification(widget.schedule!.id!);
+        } catch (_) {}
       }
-    } else if (widget.schedule?.id != null) {
-      try {
-        await NotificationService().cancelNotification(widget.schedule!.id!);
-      } catch (_) {
-        // 通知取消失败不影响保存
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e')),
+        );
       }
+      return;
     }
 
     if (mounted) {
