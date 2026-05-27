@@ -1,6 +1,0 @@
-feat: move AppBar actions to secondary toolbar, enlarge icons
-
-- AppBar action buttons moved to a secondary toolbar below the AppBar
-- Calendar/day content shifts down accordingly
-- App icons in schedule blocks increased to 34px (was 28)
-- All-day tile app icons increased to 22px (was default 18)
