@@ -134,24 +134,17 @@ class DayView extends StatelessWidget {
       controller: ScrollController(initialScrollOffset: 9 * _hourHeight),
       child: Column(
         children: [
-          GestureDetector(
-            onTapUp: (details) {
-              final tapY = details.localPosition.dy;
-              final hour = (tapY / _hourHeight).floor().clamp(0, 23);
-              _createScheduleAt(context, date, hour, 0);
-            },
-            child: SizedBox(
-              height: totalHeight,
-              child: Stack(
-                children: [
-                  // 小时格线
-                  ...List.generate(_hourCount, (i) => _buildHourLine(i)),
-                  // 当前时间指示线
-                  _buildNowLine(),
-                  // 日程块
-                  ...timed.map((s) => _buildScheduleBlock(s, context)),
-                ],
-              ),
+          SizedBox(
+            height: totalHeight,
+            child: Stack(
+              children: [
+                // 小时格线（可点击创建日程）
+                ...List.generate(_hourCount, (i) => _buildHourLine(i, date, context)),
+                // 当前时间指示线
+                _buildNowLine(),
+                // 日程块
+                ...timed.map((s) => _buildScheduleBlock(s, context)),
+              ],
             ),
           ),
           const SizedBox(height: 80),
@@ -173,33 +166,36 @@ class DayView extends StatelessWidget {
     );
   }
 
-  Widget _buildHourLine(int hour) {
+  Widget _buildHourLine(int hour, DateTime date, BuildContext context) {
     return Positioned(
       top: hour * _hourHeight,
       left: 0,
       right: 0,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 48,
-            height: _hourHeight,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Text(
-                '${hour.toString().padLeft(2, '0')}:00',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
+      child: GestureDetector(
+        onTap: () => _createScheduleAt(context, date, hour, 0),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 48,
               height: _hourHeight,
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Text(
+                  '${hour.toString().padLeft(2, '0')}:00',
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                ),
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: Container(
+                height: _hourHeight,
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

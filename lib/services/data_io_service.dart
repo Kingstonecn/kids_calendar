@@ -157,8 +157,9 @@ class DataIoService {
     await file.writeAsString(content, encoding: utf8);
 
     await Share.shareXFiles(
-      [XFile(file.path, mimeType: mimeType)],
-      subject: '亲子时光 - 日程导出',
+      [XFile(file.path, mimeType: 'text/plain')],
+      subject: '亲子时光 - 日程导出 ($filename)',
+      text: '亲子时光 - 日程导出 ($filename)',
     );
   }
 

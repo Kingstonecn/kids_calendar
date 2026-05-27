@@ -109,7 +109,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
-                    height: _categoryStats.length * 36.0 + 20,
+                    height: AppConstants.categories.length * 36.0 + 20,
                     child: _CategoryChart(stats: _categoryStats),
                   ),
                   const SizedBox(height: 40),
