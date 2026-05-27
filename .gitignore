@@ -43,6 +43,13 @@ app.*.map.json
 *.apk
 *.aab
 
+# Build output logs
+build_out*.txt
+
+# Local build scripts
+*.bat
+*.ps1
+
 # Gradle
 .android/
 .gradle/

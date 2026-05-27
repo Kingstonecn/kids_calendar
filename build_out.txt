@@ -1,4 +1,0 @@
-Microsoft Windows [版本 10.0.19044.3086]
-(c) Microsoft Corporation。保留所有权利。
-
-D:\CCWorkspace\kids_calendar>
