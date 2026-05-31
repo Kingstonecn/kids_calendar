@@ -100,6 +100,7 @@ class ScheduleProvider extends ChangeNotifier {
       final copy = source.copyWith(
         date: date_utils.DateUtils.formatDate(date),
         sourceId: source.id,
+        description: '源日程',
         isCompleted: false,
         createdAt: null,
         updatedAt: null,
@@ -157,6 +158,7 @@ class ScheduleProvider extends ChangeNotifier {
         final copy = s.copyWith(
           date: date_utils.DateUtils.formatDate(targetDate),
           sourceId: s.id,
+          description: '源日程',
           isCompleted: false,
           createdAt: null,
           updatedAt: null,

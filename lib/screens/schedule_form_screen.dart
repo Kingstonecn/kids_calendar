@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/schedule.dart';
 import '../providers/schedule_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/notification_service.dart';
 import '../widgets/category_picker.dart';
 import '../widgets/app_picker_dialog.dart';
@@ -28,8 +29,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   late int _durationMinutes; // 持续分钟数
   late String _category;
   late int _colorIndex;
-  late bool _hasAlarm;
-  late int? _alarmMinutesBefore;
   String? _appPackageName;
   String? _appName;
   bool _isEditing = false;
@@ -40,7 +39,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
   static final List<TimeOfDay> _timeOptions = () {
     final times = <TimeOfDay>[];
-    for (int h = 8; h <= 23; h++) {
+    for (int h = 0; h <= 23; h++) {
       times.add(TimeOfDay(hour: h, minute: 0));
       times.add(TimeOfDay(hour: h, minute: 30));
     }
@@ -69,24 +68,22 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         ? _parseTime(schedule!.startTime!)
         : widget.initialTime;
 
-    // 计算时长: 默认30分钟; 有起止时间则算差值
+    // 计算时长: 默认60分钟; 有起止时间则算差值
     if (schedule?.startTime != null && schedule?.endTime != null) {
       final st = _parseTime(schedule!.startTime!);
       final et = _parseTime(schedule.endTime!);
       if (st != null && et != null) {
         _durationMinutes = (et.hour * 60 + et.minute) - (st.hour * 60 + st.minute);
-        if (_durationMinutes <= 0) _durationMinutes = 30;
+        if (_durationMinutes <= 0) _durationMinutes = 60;
       } else {
-        _durationMinutes = 30;
+        _durationMinutes = 60;
       }
     } else {
-      _durationMinutes = 30;
+      _durationMinutes = 60;
     }
 
     _category = schedule?.category ?? '亲子';
     _colorIndex = schedule?.colorIndex ?? 0;
-    _hasAlarm = schedule?.hasAlarm ?? false;
-    _alarmMinutesBefore = schedule?.alarmMinutesBefore ?? 15;
     _appPackageName = schedule?.appPackageName;
     _appName = schedule?.appName;
   }
@@ -115,7 +112,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   TimeOfDay? get _endTime {
     if (_startTime == null) return null;
     final total = _startTime!.hour * 60 + _startTime!.minute + _durationMinutes;
-    return TimeOfDay(hour: total ~/ 60, minute: total % 60);
+    // 超出 24:00 则延续到第二天（小时取模 24）
+    return TimeOfDay(hour: total ~/ 60 % 24, minute: total % 60);
   }
 
   @override
@@ -307,34 +305,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ═══ 提醒 ═══
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('开启提醒'),
-                subtitle: _hasAlarm && _alarmMinutesBefore != null
-                    ? Text('提前 $_alarmMinutesBefore 分钟')
-                    : null,
-                value: _hasAlarm,
-                onChanged: (v) => setState(() => _hasAlarm = v),
-              ),
-              if (_hasAlarm) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: AppConstants.alarmOptions.map((opt) {
-                    final isSelected =
-                        _alarmMinutesBefore == opt['value'] as int;
-                    return ChoiceChip(
-                      label: Text(opt['label'] as String),
-                      selected: isSelected,
-                      onSelected: (_) => setState(
-                          () => _alarmMinutesBefore = opt['value'] as int),
-                    );
-                  }).toList(),
-                ),
-              ],
-              const SizedBox(height: 24),
-
               // ═══ 保存按钮 ═══
               SizedBox(
                 width: double.infinity,
@@ -416,7 +386,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
   Future<void> _showTimePicker() async {
     final fixedItemExtent = 48.0;
-    final initial = _startTime ?? const TimeOfDay(hour: 9, minute: 0);
+    final initial = _startTime ?? const TimeOfDay(hour: 8, minute: 0);
     var initialIdx = _timeOptions.indexWhere((t) =>
         t.hour == initial.hour && t.minute == initial.minute);
     if (initialIdx < 0) {
@@ -682,8 +652,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       endTime: _endTime != null ? _timeLabel(_endTime!) : null,
       category: _category,
       colorIndex: _colorIndex,
-      hasAlarm: _hasAlarm,
-      alarmMinutesBefore: _hasAlarm ? _alarmMinutesBefore : null,
+      hasAlarm: context.read<ThemeProvider>().reminderMode > 0,
+      alarmMinutesBefore: context.read<ThemeProvider>().reminderMode > 0
+          ? (context.read<ThemeProvider>().reminderMode == 2 ? 5 : 15)
+          : null,
       isRepeating: widget.schedule?.isRepeating ?? false,
       repeatRule: widget.schedule?.repeatRule,
       sourceId: widget.schedule?.sourceId,
@@ -701,28 +673,87 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         schedule.id = id;
       }
 
-      if (_hasAlarm && schedule.id != null && _startTime != null) {
-        try {
-          final alarmDate = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day,
-            _startTime!.hour,
-            _startTime!.minute,
-          );
-          await NotificationService().scheduleNotification(
-            scheduleId: schedule.id!,
-            title: '日程提醒: ${schedule.title}',
-            body: schedule.description.isNotEmpty
-                ? schedule.description
-                : '您有一个日程即将开始',
-            scheduledDate: alarmDate,
-            minutesBefore: _alarmMinutesBefore ?? 0,
-          );
-        } catch (_) {}
+      // 按全局提醒模式调度通知
+      if (schedule.id != null && _startTime != null) {
+        final reminderMode = context.read<ThemeProvider>().reminderMode;
+        if (reminderMode > 0) {
+          try {
+            final alarmDate = DateTime(
+              _selectedDate.year,
+              _selectedDate.month,
+              _selectedDate.day,
+              _startTime!.hour,
+              _startTime!.minute,
+            );
+            if (reminderMode == 1) {
+              // 仅准时提醒
+              await NotificationService().scheduleNotification(
+                scheduleId: schedule.id!,
+                title: '日程提醒: ${schedule.title}',
+                body: schedule.description.isNotEmpty
+                    ? schedule.description
+                    : '您有一个日程即将开始',
+                scheduledDate: alarmDate,
+                minutesBefore: 0,
+              );
+            } else if (reminderMode == 2) {
+              // 提前5分钟 + 准时
+              await NotificationService().scheduleNotification(
+                scheduleId: schedule.id!,
+                title: '日程提醒: ${schedule.title}',
+                body: schedule.description.isNotEmpty
+                    ? schedule.description
+                    : '您有一个日程即将开始',
+                scheduledDate: alarmDate,
+                minutesBefore: 0,
+              );
+              await NotificationService().scheduleNotification(
+                scheduleId: schedule.id! + 50000,
+                title: '日程提醒: ${schedule.title}',
+                body: schedule.description.isNotEmpty
+                    ? schedule.description
+                    : '您有一个日程即将开始',
+                scheduledDate: alarmDate,
+                minutesBefore: 5,
+              );
+            } else {
+              // 提前15分钟 + 准时
+              await NotificationService().scheduleNotification(
+                scheduleId: schedule.id!,
+                title: '日程提醒: ${schedule.title}',
+                body: schedule.description.isNotEmpty
+                    ? schedule.description
+                    : '您有一个日程即将开始',
+                scheduledDate: alarmDate,
+                minutesBefore: 0,
+              );
+              await NotificationService().scheduleNotification(
+                scheduleId: schedule.id! + 50000,
+                title: '日程提醒: ${schedule.title}',
+                body: schedule.description.isNotEmpty
+                    ? schedule.description
+                    : '您有一个日程即将开始',
+                scheduledDate: alarmDate,
+                minutesBefore: 15,
+              );
+            }
+          } catch (e) {
+            debugPrint('通知调度失败: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('提醒设置失败: $e')),
+              );
+            }
+          }
+        } else {
+          // 提醒已关闭
+          debugPrint('提醒模式: 关闭');
+        }
       } else if (widget.schedule?.id != null) {
+        // 无开始时间或提醒关闭，取消旧通知
         try {
           await NotificationService().cancelNotification(widget.schedule!.id!);
+          await NotificationService().cancelNotification(widget.schedule!.id! + 50000);
         } catch (_) {}
       }
     } catch (e) {
@@ -735,6 +766,13 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     }
 
     if (mounted) {
+      final mode = context.read<ThemeProvider>().reminderMode;
+      if (mode > 0) {
+        final labels = {1: '仅准时', 2: '提前5分钟+准时', 3: '提前15分钟+准时'};
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('日程已保存，提醒模式: ${labels[mode] ?? "未知"}')),
+        );
+      }
       Navigator.pop(context, true);
     }
   }
@@ -768,6 +806,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
             .read<ScheduleProvider>()
             .deleteSchedule(widget.schedule!.id!);
         await NotificationService().cancelNotification(widget.schedule!.id!);
+        await NotificationService().cancelNotification(widget.schedule!.id! + 50000);
       } catch (_) {
         // 删除失败不影响退出
       }

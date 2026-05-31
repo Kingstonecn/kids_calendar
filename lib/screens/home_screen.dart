@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/schedule_provider.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/dual_calendar.dart';
+import '../services/notification_service.dart';
 import '../widgets/day_view.dart';
 import '../utils/constants.dart';
 import 'schedule_form_screen.dart';
@@ -245,10 +247,10 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _confirmRow(Icons.file_copy, '复制的日程范围',
+            _confirmRow(Icons.file_copy, '源日程范围',
                 '${_sourceStart!.month}/${_sourceStart!.day} - ${_sourceEnd!.month}/${_sourceEnd!.day}（$srcLen天）'),
             const SizedBox(height: 12),
-            _confirmRow(Icons.content_paste, '目标范围',
+            _confirmRow(Icons.content_paste, '目标日程范围',
                 '${_targetStart!.month}/${_targetStart!.day} - ${_targetEnd!.month}/${_targetEnd!.day}（$tgtLen天）'),
             const SizedBox(height: 16),
             Text(
@@ -439,6 +441,17 @@ class _HomeScreenState extends State<HomeScreen> {
             label: '搜索',
             onTap: () => _showSearch(context),
           ),
+          Consumer<ThemeProvider>(
+            builder: (context, tp, _) {
+              final isOn = tp.reminderMode > 0;
+              return _toolbarButton(
+                icon: Icons.notifications_outlined,
+                label: isOn ? '提醒:开' : '提醒:关',
+                color: isOn ? null : Colors.grey,
+                onTap: () => _showReminderPicker(context),
+              );
+            },
+          ),
           if (_viewMode == 0)
             _toolbarButton(
               icon: _isCopyMode ? Icons.content_copy : Icons.file_copy_outlined,
@@ -532,11 +545,11 @@ class _HomeScreenState extends State<HomeScreen> {
     String instruction;
     if (start == null) {
       instruction = isSourcePhase
-          ? '请点击选择要复制的开始日期'
+          ? '请点击选择源日程的开始日期'
           : '请点击选择目标范围的开始日期';
     } else if (end == null) {
       instruction = isSourcePhase
-          ? '请点击选择要复制的结束日期（已选 ${start.month}/${start.day}）'
+          ? '请点击选择源日程的结束日期（已选 ${start.month}/${start.day}）'
           : '请点击选择目标范围的结束日期（已选 ${start.month}/${start.day}）';
     } else {
       instruction = isSourcePhase
@@ -562,7 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isSourcePhase ? '选择复制的日程范围' : '选择目标范围',
+                  isSourcePhase ? '选择源日程范围' : '选择目标范围',
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -631,15 +644,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        title: Row(
-          children: [
-            Image.asset('assets/icon.png', width: 28, height: 28),
-            const SizedBox(width: 8),
-            const Text(
-              '亲子时光',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
+        title: const Text(
+          '亲子时光',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ),
       body: Consumer<ScheduleProvider>(
@@ -707,6 +714,62 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showReminderPicker(BuildContext context) {
+    final tp = context.read<ThemeProvider>();
+    final current = tp.reminderMode;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '全局日程提醒',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '设置后将应用于之后创建的所有日程',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              _reminderOption(ctx, tp, current, 0, '关闭提醒', Icons.notifications_off_outlined, null),
+              _reminderOption(ctx, tp, current, 1, '仅准时提醒', Icons.notifications_none, null),
+              _reminderOption(ctx, tp, current, 2, '提前5分钟和准时提醒', Icons.notifications_active, Colors.green),
+              _reminderOption(ctx, tp, current, 3, '提前15分钟和准时提醒', Icons.notifications_active, Colors.orange),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _reminderOption(BuildContext ctx, ThemeProvider tp, int current,
+      int mode, String label, IconData icon, Color? color) {
+    final isSelected = current == mode;
+    return ListTile(
+      leading: Icon(icon, color: isSelected ? (color ?? AppConstants.primaryColor) : null),
+      title: Text(label),
+      trailing: isSelected
+          ? Icon(Icons.check, color: AppConstants.primaryColor)
+          : null,
+      onTap: () {
+        tp.setReminderMode(mode);
+        Navigator.pop(ctx);
+        // 验证: 开启提醒时发送测试通知
+        if (mode > 0) {
+          NotificationService().sendTestNotification(mode);
+        }
+      },
     );
   }
 

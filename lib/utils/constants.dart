@@ -70,4 +70,20 @@ class AppConstants {
     Color(0xFF6BCB77),
     Color(0xFFB8B8B8),
   ];
+
+  /// 截断字符串, 使其视觉宽度不超过指定中文字数
+  /// 中文字/全角字符算 2, 英文字母算 1, 确保中英文视觉一致
+  static String truncateTitle(String text, [int maxCnChars = 18]) {
+    final maxWidth = maxCnChars * 2;
+    int width = 0;
+    for (int i = 0; i < text.length; i++) {
+      final cp = text.codeUnitAt(i);
+      final isWide = cp >= 0x2E80 && cp <= 0x9FFF; // CJK 及全角
+      width += isWide ? 2 : 1;
+      if (width > maxWidth) {
+        return '${text.substring(0, i)}...';
+      }
+    }
+    return text;
+  }
 }

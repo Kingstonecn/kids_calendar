@@ -1,7 +1,7 @@
 name: kids_calendar
 description: "亲子时光 - 一款面向家庭的亲子日程管理应用"
 publish_to: 'none'
-version: 0.6.0+6
+version: 1.0.0+1
 
 environment:
   sdk: ^3.7.0

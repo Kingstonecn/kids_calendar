@@ -43,7 +43,7 @@ class DayView extends StatelessWidget {
 
         return Column(
           children: [
-            _buildDateHeader(date),
+            _buildDateHeader(date, provider),
             _buildWeekStrip(date, provider),
             const Divider(height: 1),
             Expanded(child: _buildTimeline(schedules, date, provider, context)),
@@ -62,16 +62,26 @@ class DayView extends StatelessWidget {
     );
   }
 
-  Widget _buildDateHeader(DateTime date) {
+  Widget _buildDateHeader(DateTime date, ScheduleProvider provider) {
     const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     final label = '${date.month}月${date.day}日 ${weekdays[date.weekday - 1]}';
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      color: Colors.white,
-      width: double.infinity,
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+    return GestureDetector(
+      onHorizontalDragEnd: (d) {
+        final dx = d.primaryVelocity ?? 0;
+        if (dx < -100) {
+          provider.selectDate(date.add(const Duration(days: 1)));
+        } else if (dx > 100) {
+          provider.selectDate(date.subtract(const Duration(days: 1)));
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        color: Colors.white,
+        width: double.infinity,
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -267,7 +277,7 @@ class DayView extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      schedule.title,
+                      AppConstants.truncateTitle(schedule.title),
                       style: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w600),
                       maxLines: 1,

@@ -60,19 +60,20 @@ class DataIoService {
   }
 
   /// 从 CSV 文件导入
-  Future<int> importCsv(BuildContext context) async {
+  /// 返回 (成功数, 失败数)
+  Future<({int success, int failed})> importCsv(BuildContext context) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
     );
-    if (result == null || result.files.single.path == null) return 0;
+    if (result == null || result.files.single.path == null) return (success: 0, failed: 0);
 
     final file = File(result.files.single.path!);
     final content = await file.readAsString();
     // Remove BOM if present
     final clean = content.replaceFirst('﻿', '');
     final lines = LineSplitter.split(clean).toList();
-    if (lines.length < 2) return 0;
+    if (lines.length < 2) return (success: 0, failed: 0);
 
     // Skip header line
     final schedules = <Schedule>[];
@@ -103,18 +104,17 @@ class DataIoService {
       ));
     }
 
-    if (schedules.isEmpty) return 0;
-    final ids = await _dao.insertAll(schedules);
-    return ids.length;
+    return _importWithDedup(schedules);
   }
 
   /// 从 JSON 文件导入
-  Future<int> importJson(BuildContext context) async {
+  /// 返回 (成功数, 失败数)
+  Future<({int success, int failed})> importJson(BuildContext context) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
-    if (result == null || result.files.single.path == null) return 0;
+    if (result == null || result.files.single.path == null) return (success: 0, failed: 0);
 
     final file = File(result.files.single.path!);
     final content = await file.readAsString();
@@ -145,14 +145,96 @@ class DataIoService {
       ));
     }
 
-    if (schedules.isEmpty) return 0;
-    final ids = await _dao.insertAll(schedules);
-    return ids.length;
+    return _importWithDedup(schedules);
+  }
+
+  /// 去重插入：跳过标题+日期+时间重叠的重复项
+  Future<({int success, int failed})> _importWithDedup(List<Schedule> incoming) async {
+    if (incoming.isEmpty) return (success: 0, failed: 0);
+
+    // 按日期分组，分批查库
+    final byDate = <String, List<Schedule>>{};
+    for (final s in incoming) {
+      byDate.putIfAbsent(s.date, () => []).add(s);
+    }
+
+    int success = 0, failed = 0;
+    final toInsert = <Schedule>[];
+
+    for (final date in byDate.keys) {
+      final existing = await _dao.getByDate(date);
+
+      for (final s in byDate[date]!) {
+        bool isDup = false;
+
+        // 与数据库中已有日程比对
+        for (final ext in existing) {
+          if (_isDuplicate(ext, s)) {
+            isDup = true;
+            break;
+          }
+        }
+
+        // 与本次待插入列表中已确认的其他日程比对
+        if (!isDup) {
+          for (final acc in toInsert) {
+            if (acc.date == s.date && _isDuplicate(acc, s)) {
+              isDup = true;
+              break;
+            }
+          }
+        }
+
+        if (isDup) {
+          failed++;
+        } else {
+          toInsert.add(s);
+          success++;
+        }
+      }
+    }
+
+    if (toInsert.isNotEmpty) {
+      await _dao.insertAll(toInsert);
+    }
+    return (success: success, failed: failed);
+  }
+
+  /// 判断两个日程是否重复：同标题 + 同日期 + 时间重叠
+  bool _isDuplicate(Schedule a, Schedule b) {
+    if (a.title != b.title || a.date != b.date) return false;
+
+    final aStart = a.startTime;
+    final aEnd = a.endTime;
+    final bStart = b.startTime;
+    final bEnd = b.endTime;
+
+    // 双方都无时间 → 全天的重复
+    if (aStart == null && bStart == null) return true;
+    // 一方有时间一方无 → 也视为重叠
+    if (aStart == null || bStart == null) return true;
+
+    // 解析分钟数
+    int parseMin(String t) {
+      final parts = t.split(':');
+      return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    }
+
+    final aS = parseMin(aStart);
+    final aE = aEnd != null ? parseMin(aEnd) : aS + 60;
+    final bS = parseMin(bStart);
+    final bE = bEnd != null ? parseMin(bEnd) : bS + 60;
+
+    // 标准区间重叠检测
+    return aS < bE && bS < aE;
   }
 
   Future<void> _shareFile(BuildContext context, String content, String filename, String mimeType) async {
-    await Share.share(
-      content,
+    final dir = await Directory.systemTemp.createTemp('kids_calendar_');
+    final file = File('${dir.path}/$filename');
+    await file.writeAsString(content);
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: mimeType)],
       subject: '亲子时光 - 日程导出 ($filename)',
     );
   }

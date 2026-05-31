@@ -196,7 +196,7 @@ class AgendaView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      schedule.title,
+                      AppConstants.truncateTitle(schedule.title),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

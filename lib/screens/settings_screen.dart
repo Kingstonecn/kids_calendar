@@ -253,21 +253,33 @@ class SettingsScreen extends StatelessWidget {
   Future<void> _doImport(BuildContext context, String format) async {
     final service = DataIoService();
     try {
-      final count = format == 'csv'
+      final result = format == 'csv'
           ? await service.importCsv(context)
           : await service.importJson(context);
 
       if (!context.mounted) return;
 
-      if (count > 0) {
+      if (result.success > 0) {
         // 刷新数据
         context.read<ScheduleProvider>().loadAllDates();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('成功导入 $count 个日程')),
+          SnackBar(
+            content: Text(
+              result.failed > 0
+                  ? '成功导入 ${result.success} 个日程，跳过 ${result.failed} 个重复'
+                  : '成功导入 ${result.success} 个日程',
+            ),
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未找到有效的日程数据')),
+          SnackBar(
+            content: Text(
+              result.failed > 0
+                  ? '全部 ${result.failed} 个日程均为重复，已跳过'
+                  : '未找到有效的日程数据',
+            ),
+          ),
         );
       }
     } catch (e) {

@@ -25,12 +25,18 @@ void main() async {
             themeIndex: settings['themeIndex']!,
             firstDayOfWeek: settings['firstDayOfWeek']!,
             lunarDisplayMode: settings['lunarDisplayMode']!,
+            reminderMode: settings['reminderMode']!,
           ),
         ),
       ],
       child: const KidsCalendarApp(),
     ),
   );
+
+  // 等 App 构建完成后请求通知权限（需要 Activity 上下文）
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    NotificationService().requestPermissions();
+  });
 
   // 检查是否有来自通知的跳转
   _checkPendingNotification();
