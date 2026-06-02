@@ -150,8 +150,9 @@ class DayView extends StatelessWidget {
               children: [
                 // 小时格线（可点击创建日程）
                 ...List.generate(_hourCount, (i) => _buildHourLine(i, date, context)),
-                // 当前时间指示线
-                _buildNowLine(),
+                // 当前时间指示线（仅当日显示）
+                if (date_utils.DateUtils.isSameDay(date, DateTime.now()))
+                  _buildNowLine(),
                 // 日程块
                 ...timed.map((s) => _buildScheduleBlock(s, context)),
               ],
@@ -303,16 +304,45 @@ class DayView extends StatelessWidget {
                   onTap: () => context
                       .read<ScheduleProvider>()
                       .toggleCheckIn(schedule.id!),
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: Icon(
-                      schedule.isCompleted
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      size: 20,
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: schedule.isCompleted
+                            ? AppConstants.primaryColor
+                            : Colors.grey.shade300,
+                        width: 1.5,
+                      ),
                       color: schedule.isCompleted
-                          ? AppConstants.primaryColor
-                          : Colors.grey.shade400,
+                          ? AppConstants.primaryColor.withOpacity(0.1)
+                          : Colors.transparent,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: schedule.isCompleted
+                                ? AppConstants.primaryColor
+                                : Colors.grey.shade300,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '打卡',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: schedule.isCompleted
+                                ? AppConstants.primaryColor
+                                : Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
